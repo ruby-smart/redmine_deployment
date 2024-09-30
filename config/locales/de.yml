@@ -9,3 +9,7 @@ de:
   field_environment: Environment
   field_from_revision: Revision (von)
   field_to_revision: Revision (bis)
+  field_result: Ergebnis
+  results:
+    success: erfolgreich
+    fail: fehlgeschlagen

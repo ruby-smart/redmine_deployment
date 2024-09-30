@@ -1,0 +1,7 @@
+.deployment-success{
+
+}
+
+tr.deployment-fail{
+    background: #fff2f2 !important;
+}

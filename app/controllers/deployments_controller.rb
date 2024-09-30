@@ -44,6 +44,12 @@ class DeploymentsController < ApplicationController
 
       respond_to do |format|
         format.html
+        format.atom { render_feed(@deployments, :title => "#{@project || Setting.app_title}: #{l(:label_deployments)}") }
+        format.csv {
+          send_data(query_to_csv(@deployments, @query, params[:csv] || {}),
+                    :type => 'text/csv; header=present',
+                    :filename => 'deployments.csv')
+        }
         format.api
       end
     else

@@ -9,6 +9,7 @@ class DeploymentQuery < Query
     QueryColumn.new(:environment, sortable: "#{Deployment.table_name}.environment", groupable: true),
     QueryColumn.new(:revisions, caption: :label_revision_plural),
     QueryColumn.new(:servers),
+    QueryColumn.new(:result, sortable: "#{Deployment.table_name}.result", groupable: true),
     QueryColumn.new(:repository, sortable: "#{Deployment.table_name}.repository_id", groupable: true, caption: :label_repository),
     QueryColumn.new(:author, sortable: "#{Deployment.table_name}.author_id", groupable: true),
     QueryColumn.new(:project, sortable: "#{Project.table_name}.name", groupable: true),
@@ -35,6 +36,10 @@ class DeploymentQuery < Query
     Repository.where(project_id: q).map{|repository| [repository.identifier, repository.id]}
   end
 
+  def result_values
+    Deployment::RESULTS.map{|result| [I18n.t(result, scope: 'results'), result]}
+  end
+
   def initialize_available_filters
     add_available_filter "from_revision", :type => :string, :order => 0
     add_available_filter "to_revision", :type => :string, :order => 1
@@ -52,6 +57,9 @@ class DeploymentQuery < Query
     )
 
     add_available_filter("author_id", :order => 4, :type => :list_optional, :values => author_values)
+
+
+    add_available_filter "result", :type => :list, :values => lambda { result_values }
   end
 
   def available_columns

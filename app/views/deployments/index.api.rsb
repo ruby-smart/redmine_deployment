@@ -1,0 +1,17 @@
+api.array :deployments, api_meta(:total_count => @deployments_count, :offset => @offset, :limit => @limit) do
+  @deployments.each do |deployment|
+    api.deployment do
+	    api.id deployment.id
+
+	    api.author(:id => deployment.author_id, :name => deployment.author.name)
+	    api.project(:id => deployment.project.id,  :name => deployment.project.name)
+	    api.repository(:id => deployment.repository.id,  :name => deployment.repository.identifier)
+
+	    api.from_revision deployment.from_revision
+	    api.to_revision deployment.to_revision
+	    api.environment deployment.environment
+	    api.servers deployment.servers
+	    api.created_on contact.created_on
+    end
+  end
+end

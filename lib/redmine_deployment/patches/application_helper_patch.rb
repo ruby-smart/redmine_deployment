@@ -14,7 +14,7 @@ module RedmineDeployment
         def format_object_with_deployment(object, html = true, &block)
           case object
           when Repository
-            link_to(object.identifier, controller: :repositories, action: :show, repository_id: object.identifier, id: object.project.identifier)
+            html ? link_to(object.identifier, controller: :repositories, action: :show, repository_id: object.identifier, id: object.project.identifier) : object.identifier
           else
             format_object_without_deployment(object, html, &block)
           end

@@ -1,3 +1,5 @@
+<% filtered_params = params.respond_to?(:to_unsafe_hash) ? params.to_unsafe_hash : params %>
+
 <h2><%= @query.new_record? ? l(:label_deployments) : @query.name %></h2>
 <% html_title(@query.new_record? ? l(:label_deployments) : @query.name) %>
 
@@ -16,6 +18,12 @@
       <span class="pagination"><%= pagination_links_full @deployments_pages, @deployments_count %></span>
     <% end %>
   </div>
+  <% if User.current.allowed_to?(:export_contacts, @project, :global => true) %>
+    <% other_formats_links do |f| %>
+      <%= f.link_to 'Atom', :url => filtered_params.merge(:key => User.current.atom_key) %>
+      <%= f.link_to 'CSV', :url => filtered_params %>
+    <% end %>
+  <% end %>
 <% end %>
 
 <% content_for :sidebar do %>
@@ -23,3 +31,7 @@
 <% end %>
 
 <%= context_menu %>
+
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag "deployment.css", :plugin => 'redmine_deployment' %>
+<% end %>

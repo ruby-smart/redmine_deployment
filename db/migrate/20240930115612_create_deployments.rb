@@ -11,6 +11,8 @@ class CreateDeployments < Rails.version < '5.1' ? ActiveRecord::Migration : Acti
       t.string :environment
       t.text :servers
 
+      t.string :result
+
       t.datetime :created_on
     end
 
