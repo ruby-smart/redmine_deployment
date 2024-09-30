@@ -1,0 +1,11 @@
+de:
+  deployments: Deployments
+  label_deployment: Deployment
+  label_deployments: Deployment
+  permission_view_deployments: Deployments ansehen
+  permission_create_deployments: Deployments erstellen (API)
+  project_module_deployment: Deployment
+  field_servers: Server
+  field_environment: Environment
+  field_from_revision: Revision (von)
+  field_to_revision: Revision (bis)

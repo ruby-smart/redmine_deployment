@@ -1,0 +1,3 @@
+<%= call_hook(:view_deployments_sidebar_queries_top) %>
+<%= render_sidebar_queries(DeploymentQuery, @project) %>
+<%= call_hook(:view_deployments_sidebar_queries_bottom) %>
