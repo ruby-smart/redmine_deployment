@@ -77,12 +77,16 @@ A plugin for repository deployments
 
 ## API Endpoints
 
-#### Log new deployment
+### Log deployment
 _Creates new deployment through API_
 ```
 [POST] /projects/:project_id/deploy/:repository_id'
 => {deployment: {...}}
 ```
+
+### Log deployment with capistrano
+_Automatically log success/failed deployment with capistrano tasks_
+Use the gem `capistrano-redmine-deployment` to hook into capistrano tasks.
 
 ------------------------------------
 
