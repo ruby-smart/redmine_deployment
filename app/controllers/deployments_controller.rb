@@ -11,7 +11,7 @@ class DeploymentsController < ApplicationController
   before_action :find_optional_project
   before_action :find_project_repository, :only => :create
 
-  accept_api_auth :index, :show, :create, :destroy
+  accept_api_auth :index, :show, :create
 
   def index
     retrieve_query
@@ -30,16 +30,16 @@ class DeploymentsController < ApplicationController
       else
         @limit = per_page_option
       end
-      @deployments_count = @query.deployment_count
+      @deployments_count         = @query.deployment_count
       @deployment_count_by_group = @query.deployment_count_by_group
 
       @deployments_pages = Paginator.new(@deployments_count, @limit, params['page'])
       @offset            ||= @deployments_pages.offset
 
-      @deployments                = @query.deployments(
-        :order   => sort_clause,
-        :limit   => @limit,
-        :offset  => @offset
+      @deployments = @query.deployments(
+        :order  => sort_clause,
+        :limit  => @limit,
+        :offset => @offset
       )
 
       respond_to do |format|
@@ -47,7 +47,7 @@ class DeploymentsController < ApplicationController
         format.atom { render_feed(@deployments, :title => "#{@project || Setting.app_title}: #{l(:label_deployments)}") }
         format.csv {
           send_data(query_to_csv(@deployments, @query, params[:csv] || {}),
-                    :type => 'text/csv; header=present',
+                    :type     => 'text/csv; header=present',
                     :filename => 'deployments.csv')
         }
         format.api
@@ -62,8 +62,9 @@ class DeploymentsController < ApplicationController
   end
 
   def show
+    @deployment ||= Deployment.find(params[:id])
+
     respond_to do |format|
-      format.html
       format.api
     end
   end
@@ -74,12 +75,13 @@ class DeploymentsController < ApplicationController
 
     @deployment.project    = @project
     @deployment.repository = @repository
-    @deployment.user       = User.current
+    @deployment.author     = User.current
+
     if @deployment.save
       respond_to do |format|
         format.js
         format.html { redirect_to :back }
-        format.api { render :action => 'show', :status => :created, :location => deployment_url(@deployment) }
+        format.api { render :action => 'show', :status => :created }
       end
     else
       respond_to do |format|

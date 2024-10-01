@@ -1,0 +1,16 @@
+<% if @changesets.present? %>
+  <%
+    branches = @changesets.map(&:branches).flatten.uniq
+    repository_identifier = @changesets.first.repository.identifier
+  %>
+
+  <div class="branches">
+    <strong><%= t(:label_branch) %>: </strong>
+    <% branches.each do |branch| %>
+      <%= link_to({controller: :repositories, action: :show, id: project.identifier, repository_id: repository_identifier, rev: branch}, {class: 'branch'}) do %>
+        <span class="badge"><%= branch %></span>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>
+<%= render(:parent, {project: project}) %>

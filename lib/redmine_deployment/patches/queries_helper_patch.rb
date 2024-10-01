@@ -16,22 +16,36 @@ module RedmineDeployment
 
           case column.name
           when :from_revision, :to_revision
-            link_to(value, controller: :repositories, action: :revision, repository_id: item.repository.identifier, id: item.project.identifier, rev: value)
+            value.blank? ? "-" : link_to_revision_from_deployment(item, column.name)
           when :revisions
-            if item.to_revision.blank?
-              link_to(item.from_revision, controller: :repositories, action: :revision, repository_id: item.repository.identifier, id: item.project.identifier, rev: item.from_revision)
-            else
+            if item.to_revision.present? && item.from_revision.present?
               ret = ''.html_safe
-              ret << link_to(item.from_revision, controller: :repositories, action: :revision, repository_id: item.repository.identifier, id: item.project.identifier, rev: item.from_revision)
+              ret << link_to_revision_from_deployment(item, :from_revision)
               ret << ' ... '
-              ret << link_to(item.to_revision, controller: :repositories, action: :revision, repository_id: item.repository.identifier, id: item.project.identifier, rev: item.to_revision)
+              ret << link_to_revision_from_deployment(item, :to_revision)
               ret
+            elsif item.to_revision.present?
+              "000000 ... #{link_to_revision_from_deployment(item, :to_revision)}".html_safe
+            elsif item.from_revision.present?
+              "#{link_to_revision_from_deployment(item, :from_revision)} ... ?".html_safe
+            else
+              "-"
             end
           when :result
             I18n.t(value, scope: 'results')
           else
             column_value_without_deployment(column, item, value)
           end
+        end
+
+        def link_to_revision_from_deployment(deployment, target)
+          rev = deployment.send(target)
+
+          # no repository or project found
+          return rev if deployment.repository.blank? || deployment.project.blank?
+
+          # return link
+          link_to(rev[0..7], controller: :repositories, action: :revision, repository_id: deployment.repository.identifier, id: deployment.project.identifier, rev: rev)
         end
 
         def redirect_to_deployment_query(options)

@@ -6,7 +6,8 @@ class DeploymentQuery < Query
   self.available_columns = [
     QueryColumn.new(:from_revision),
     QueryColumn.new(:to_revision),
-    QueryColumn.new(:environment, sortable: "#{Deployment.table_name}.environment", groupable: true),
+    QueryColumn.new(:branch, sortable: "#{Deployment.table_name}.branch", groupable: true, caption: :label_branch),
+    QueryColumn.new(:environment, sortable: "#{Deployment.table_name}.environment", groupable: true, caption: :label_environment),
     QueryColumn.new(:revisions, caption: :label_revision_plural),
     QueryColumn.new(:servers),
     QueryColumn.new(:result, sortable: "#{Deployment.table_name}.result", groupable: true),
@@ -29,6 +30,14 @@ class DeploymentQuery < Query
     end
   end
 
+  def branch_values
+    if project
+      project.deployments.distinct.pluck(:branch)
+    else
+      Deployment.all.distinct.pluck(:branch)
+    end
+  end
+
   def repository_values
     q = Project.allowed_to(:view_repositories).has_module(:repository).has_module(:deployment)
     q.where!(id: project.id) if project
@@ -44,7 +53,8 @@ class DeploymentQuery < Query
     add_available_filter "from_revision", :type => :string, :order => 0
     add_available_filter "to_revision", :type => :string, :order => 1
     add_available_filter "servers", :type => :text, :order => 2
-    add_available_filter "environment", :type => :list, :values => lambda { environment_values }, :order => 3
+    add_available_filter "environment", :type => :list, :values => lambda { environment_values }, :order => 3, label: :label_environment
+    add_available_filter "branch", :type => :list, :values => lambda { branch_values }, :order => 3, label: :label_branch
 
     add_available_filter(
       "project_id",
@@ -69,6 +79,10 @@ class DeploymentQuery < Query
 
   def default_columns_names
     @default_columns_names ||= project.nil? ? [:project, :repository, :created_on, :author, :revisions, :environment] : [:created_on, :author, :revisions, :environment]
+  end
+
+  def default_sort_criteria
+    [['created_on', 'desc']]
   end
 
   def base_scope

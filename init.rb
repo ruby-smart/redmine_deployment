@@ -1,6 +1,6 @@
 
 Redmine::Plugin.register :redmine_deployment do
-  name 'Redmine deployment plugin'
+  name 'Redmine Deployment plugin'
   author 'Ruby Smart'
   description 'A plugin for repository deployments'
   version '1.0.0'
@@ -21,6 +21,7 @@ Redmine::Plugin.register :redmine_deployment do
   end
 
   menu :project_menu, :deployments, {controller: :deployments, action: :index}, caption: :label_deployment, param: :project_id
+  menu :application_menu, :deployments, { controller: :deployments, action: :index, project_id: nil }, caption: :label_deployment, if: Proc.new { User.current.logged? && User.current.allowed_to?(:view_deployments, nil, global: true) }
 end
 
 require File.dirname(__FILE__) + '/lib/redmine_deployment'

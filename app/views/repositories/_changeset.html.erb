@@ -1,0 +1,13 @@
+<%
+  doc = Nokogiri::XML.fragment(render(:parent))
+
+  if @changeset.branches.present?
+    rev_text = []
+    @changeset.branches.each do |branch|
+      rev_text << link_to("<span class='badge'>#{branch}</span>".html_safe, {controller: :repositories, action: :show, repository_id: @changeset.repository.identifier, rev: branch},{class: 'branch'})
+    end
+
+    doc.xpath("div[contains(@class, 'details')]/ul[contains(@class, 'revision-info')]/li").first.after("<li><strong>#{t(:label_branch)} </strong> #{rev_text.join(', ').html_safe}</li>")
+  end
+%>
+<%= doc.to_s.html_safe %>

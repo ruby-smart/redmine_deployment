@@ -1,0 +1,14 @@
+en:
+  deployments: Deployments
+  label_deployment: Deployment
+  label_deployments: Deployment
+  permission_view_deployments: view Deployments
+  permission_create_deployments: create Deployments (API)
+  project_module_deployment: Deployment
+  field_servers: Server
+  field_from_revision: Revision (from)
+  field_to_revision: Revision (to)
+  field_result: Result
+  results:
+    success: success
+    fail: fail

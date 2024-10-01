@@ -10,8 +10,9 @@ api.array :deployments, api_meta(:total_count => @deployments_count, :offset => 
 	    api.from_revision deployment.from_revision
 	    api.to_revision deployment.to_revision
 	    api.environment deployment.environment
+	    api.result deployment.result
 	    api.servers deployment.servers
-	    api.created_on contact.created_on
+	    api.created_on deployment.created_on
     end
   end
 end

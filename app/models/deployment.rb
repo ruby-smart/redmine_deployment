@@ -9,31 +9,21 @@ class Deployment < ApplicationRecord
   belongs_to :project
   belongs_to :repository
 
-  validates_presence_of :user, :project, :repository
+  validates_presence_of :author, :project, :repository
   validates_inclusion_of :result, :in => RESULTS
 
-  acts_as_event :title       => Proc.new { |o| "DEPLOYMENT" },
-                :type        => 'deployment',
-                :group       => :repository,
-                :url         => Proc.new { |o| { controller: :notes, action: :show, id: o.id } },
-                :description => Proc.new { |o| "todo" }
-
-  after_create :send_notification
-
   attr_protected :id if ActiveRecord::VERSION::MAJOR <= 4
-  safe_attributes 'from_revision', 'to_revision', 'environment', 'servers'
+  safe_attributes 'from_revision', 'to_revision', 'environment', 'servers', 'result', 'branch'
 
   def revisions
-    if to_revision.blank?
-      from_revision
+    if to_revision.present? && from_revision.present?
+      "#{from_revision[0..7]} ... #{to_revision[0..7]}"
+    elsif to_revision.present?
+      "000000 ... #{to_revision[0..7]}"
+    elsif from_revision.present?
+      "#{from_revision[0..7]} ... ?"
     else
-      "#{from_revision} ... #{to_revision}"
+      "-"
     end
-  end
-
-  private
-
-  def send_notification
-
   end
 end

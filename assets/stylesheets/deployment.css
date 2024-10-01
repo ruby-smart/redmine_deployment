@@ -5,3 +5,21 @@
 tr.deployment-fail{
     background: #fff2f2 !important;
 }
+
+a.branch span.badge{
+    border: 1px solid #ccc;
+    color: coral;
+}
+
+a.branch:hover{
+    text-decoration: none;
+}
+
+a.branch:hover span.badge{
+    background: coral;
+    color: #ccc;
+}
+
+.branches{
+    margin-bottom: 20px;
+}

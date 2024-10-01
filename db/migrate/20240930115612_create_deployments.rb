@@ -5,6 +5,7 @@ class CreateDeployments < Rails.version < '5.1' ? ActiveRecord::Migration : Acti
       t.integer :repository_id, null: false
       t.integer :author_id, null: false
 
+      t.string :branch
       t.string :from_revision
       t.string :to_revision
 
