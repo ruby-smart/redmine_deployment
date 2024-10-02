@@ -4,7 +4,7 @@ Redmine::Plugin.register :redmine_deployment do
   author 'Ruby Smart'
   description 'A plugin for repository deployments'
   version '1.0.0'
-  url 'https://git.gonzo-hosting.de/ruby-smart/redmine_deployment'
+  url 'https://github.com/ruby-smart/redmine_deployment'
   author_url 'https://ruby-smart.org'
 
   # redmine requirements
