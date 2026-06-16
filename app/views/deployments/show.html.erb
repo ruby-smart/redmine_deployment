@@ -1,3 +1,7 @@
+<div class="contextual">
+  <%= render :partial => 'navigation' %>
+</div>
+
 <h2>
   <%= link_to l(:label_deployments), project_deployments_path(@deployment.project) %>
   &#187; <%= l(:label_deployment) %> #<%= @deployment.id %>
@@ -32,7 +36,7 @@
     </div>
     <div class="attribute">
       <div class="label"><%= l(:label_branch) %></div>
-      <div class="value"><%= @deployment.branch.presence || l(:label_none) %></div>
+      <div class="value"><%= link_to(@deployment.branch.presence || l(:label_none), {controller: :repositories, action: :show, id: @project.identifier, repository_id: @deployment.repository.identifier, rev: @deployment.branch}, {class: 'branch'}) %></div>
     </div>
     <div class="attribute">
       <div class="label"><%= l(:label_revision_plural) %></div>

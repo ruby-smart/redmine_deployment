@@ -1,5 +1,10 @@
 # redmine deployment - CHANGELOG
 
+## 2026-06-16 v1.1.1
+* **[add]** contextual navigation between the deployments overview & statistics pages
+* **[add]** branch value on the detail page links to the repository branch
+* **[ref]** replaced the sidebar overview/statistics links with the contextual navigation
+
 ## 2026-06-16 v1.1.0
 * **[add]** deployment detail page _(HTML show)_ summarizing the key deployment data
 * **[add]** related issues & related revisions on the detail page, shown as tabs

@@ -5,6 +5,7 @@ class DeploymentsController < ApplicationController
   helper :queries
   include QueriesHelper
   include ApplicationHelper
+  helper :repositories
 
   default_search_scope :deployments
 

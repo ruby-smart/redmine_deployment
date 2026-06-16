@@ -1,0 +1,7 @@
+<% if @project %>
+  <% if params[:action] == 'index' %>
+    <%= link_to l(:label_statistics), statistics_project_deployments_path(@project), class: 'icon icon-stats'  %>
+  <% else %>
+    <%= link_to l(:label_overview), project_deployments_path(@project), class: 'icon icon-report' %>
+  <% end %>
+<% end %>
