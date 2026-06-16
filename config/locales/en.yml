@@ -9,6 +9,9 @@ en:
   field_from_revision: Revision (from)
   field_to_revision: Revision (to)
   field_result: Result
+  label_deployment_statistics: Deployment statistics
+  label_deployments_per_month: Successful deployments per month
+  label_deployments_per_author: Successful deployments per author
   results:
     success: success
     fail: fail

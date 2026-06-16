@@ -1,0 +1,73 @@
+<h2>
+  <%= link_to l(:label_deployments), project_deployments_path(@deployment.project) %>
+  &#187; <%= l(:label_deployment) %> #<%= @deployment.id %>
+  <span class="deployment-result deployment-<%= @deployment.result %>"><%= t(@deployment.result, :scope => 'results') %></span>
+</h2>
+
+<div class="deployment issue details">
+  <div class="attributes">
+    <div class="attribute">
+      <div class="label"><%= l(:field_result) %></div>
+      <div class="value"><%= t(@deployment.result, :scope => 'results') %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:label_project) %></div>
+      <div class="value"><%= link_to_project(@deployment.project) %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:label_repository) %></div>
+      <div class="value">
+        <%= link_to @deployment.repository.identifier.presence || l(:label_repository),
+                    url_for(:controller => 'repositories', :action => 'show',
+                            :id => @deployment.project, :repository_id => @deployment.repository.identifier_param) %>
+      </div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:field_author) %></div>
+      <div class="value"><%= link_to_user(@deployment.author) %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:label_environment) %></div>
+      <div class="value"><%= @deployment.environment.presence || l(:label_none) %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:label_branch) %></div>
+      <div class="value"><%= @deployment.branch.presence || l(:label_none) %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:label_revision_plural) %></div>
+      <div class="value"><%= @deployment.revisions %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:field_servers) %></div>
+      <div class="value"><%= simple_format(h(@deployment.servers.presence || l(:label_none))) %></div>
+    </div>
+    <div class="attribute">
+      <div class="label"><%= l(:field_created_on) %></div>
+      <div class="value"><%= format_time(@deployment.created_on) %></div>
+    </div>
+  </div>
+</div>
+
+<% deployment_tabs = [
+     {
+       :name    => 'related_issues',
+       :label   => :label_related_issues,
+       :partial => 'deployments/tabs/related_issues'
+     },
+     {
+       :name    => 'related_changesets',
+       :label   => :label_revision_plural,
+       :partial => 'deployments/tabs/related_changesets'
+     }
+   ] %>
+
+<div class="deployment-related">
+  <%= render_tabs deployment_tabs %>
+</div>
+
+<% content_for :sidebar do %>
+  <%= render :partial => 'deployments/sidebar' %>
+<% end %>
+
+<% html_title("#{l(:label_deployment)} ##{@deployment.id}") -%>

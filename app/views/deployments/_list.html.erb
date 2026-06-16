@@ -5,6 +5,7 @@
     <table class="list deployments">
       <thead>
       <tr>
+        <th class="id">#</th>
         <% @query.columns.each do |column| %>
           <%= column_header(@query, column) %>
         <% end %>
@@ -17,7 +18,7 @@
         <% if @query.grouped? && (group = @query.group_by_column.value(deployment)) != previous_group %>
           <% reset_cycle %>
           <tr class="group open">
-            <td colspan="<%= @query.columns.size + 2 %>">
+            <td colspan="<%= @query.columns.size + 3 %>">
               <span class="expander icon icon-expanded" onclick="toggleRowGroup(this);">&nbsp;</span>
               <%= group.blank? ? l(:label_none) : column_content(@query.group_by_column, deployment) %> <span class="count">(<%= @deployment_count_by_group[group] %>)</span>
               <%= link_to_function("#{l(:button_collapse_all)}/#{l(:button_expand_all)}", "toggleAllRowGroups(this)", :class => 'toggle-all') %>
@@ -27,6 +28,7 @@
         <% end %>
 
         <tr id="deployment-<%= h(deployment.id) %>" class="deployment deployment-<%= deployment.result %> <%= cycle('odd', 'even') %>">
+          <td class="id"><%= link_to "##{deployment.id}", project_deployment_path(deployment.project, deployment) %></td>
           <% @query.columns.each do |column| %><%= content_tag 'td', column_content(column, deployment), :class => column.css_classes %><% end %>
         </tr>
       <% end %>

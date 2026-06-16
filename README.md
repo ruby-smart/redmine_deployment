@@ -1,6 +1,6 @@
 # redmine deployment Plugin
 
-![](https://img.shields.io/badge/version-1.0.0-blue.svg "version")
+![](https://img.shields.io/badge/version-1.1.0-blue.svg "version")
 [![Author](https://img.shields.io/badge/author-ruby--smart-blue)](https://ruby-smart.org)
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-green)](docs/LICENSE.txt)

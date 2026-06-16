@@ -9,6 +9,9 @@ de:
   field_from_revision: Revision (von)
   field_to_revision: Revision (bis)
   field_result: Ergebnis
+  label_deployment_statistics: Deployment-Statistik
+  label_deployments_per_month: Erfolgreiche Deployments pro Monat
+  label_deployments_per_author: Erfolgreiche Deployments pro Autor
   results:
     success: erfolgreich
     fail: fehlgeschlagen

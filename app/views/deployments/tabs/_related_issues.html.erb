@@ -1,0 +1,24 @@
+<% if @related_issues.any? %>
+  <table class="list issues">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th><%= l(:field_tracker) %></th>
+        <th><%= l(:field_status) %></th>
+        <th><%= l(:field_subject) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @related_issues.each do |issue| %>
+        <tr class="issue <%= cycle('odd', 'even') %> <%= issue.css_classes %>">
+          <td class="id"><%= link_to "##{issue.id}", issue_path(issue) %></td>
+          <td class="tracker"><%= issue.tracker.name %></td>
+          <td class="status"><%= issue.status.name %></td>
+          <td class="subject"><%= link_to issue.subject, issue_path(issue) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>

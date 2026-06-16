@@ -23,3 +23,7 @@ a.branch:hover span.badge{
 .branches{
     margin-bottom: 20px;
 }
+
+.deployment-graph{
+    margin-bottom: 2em;
+}

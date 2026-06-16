@@ -3,7 +3,7 @@ Redmine::Plugin.register :redmine_deployment do
   name 'Redmine Deployment plugin'
   author 'Ruby Smart'
   description 'A plugin for repository deployments'
-  version '1.0.0'
+  version '1.1.0'
   url 'https://github.com/ruby-smart/redmine_deployment'
   author_url 'https://ruby-smart.org'
 
@@ -12,7 +12,7 @@ Redmine::Plugin.register :redmine_deployment do
 
   project_module :deployment do
     permission :view_deployments, {
-      :deployments => [:show, :index],
+      :deployments => [:show, :index, :stats, :graph],
     }, :read => true, caption: :label_view_deployments
 
     permission :create_deployments, {

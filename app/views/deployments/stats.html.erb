@@ -1,0 +1,95 @@
+<h2><%= l(:label_deployment_statistics) %></h2>
+
+<div class="deployment-graph">
+  <canvas id="deployments_per_month"></canvas>
+</div>
+
+<div class="deployment-graph">
+  <canvas id="deployments_per_author"></canvas>
+</div>
+
+
+<%= javascript_tag do %>
+// Color palette used to assign one color per environment (dataset)
+var deploymentChartColors = [
+  'rgba(54, 162, 235, 0.7)',
+  'rgba(255, 99, 132, 0.7)',
+  'rgba(255, 206, 86, 0.7)',
+  'rgba(75, 192, 192, 0.7)',
+  'rgba(153, 102, 255, 0.7)',
+  'rgba(255, 159, 64, 0.7)',
+  'rgba(46, 204, 113, 0.7)',
+  'rgba(199, 199, 199, 0.7)'
+];
+
+function deploymentDatasets(data){
+  return data['datasets'].map(function(ds, i){
+    var color = deploymentChartColors[i % deploymentChartColors.length];
+    return {
+      label: ds['name'],
+      backgroundColor: color,
+      borderColor: color.replace('0.7', '1'),
+      borderWidth: 1,
+      data: ds['data']
+    };
+  });
+}
+
+$(document).ready(function(){
+  $.getJSON(<%= raw url_for(:controller => 'deployments', :action => 'graph',
+    :project_id => @project, :graph => "deployments_per_month").to_json %>, function(data){
+
+    new Chart(document.getElementById("deployments_per_month").getContext("2d"), {
+      type: 'bar',
+      data: {labels: data['labels'], datasets: deploymentDatasets(data)},
+      options: {
+        elements: {bar: {borderWidth: 2}},
+        responsive: true,
+        plugins: {
+          legend: {position: 'right'},
+          title: {display: true, text: <%= raw l(:label_deployments_per_month).to_json %>}
+        },
+        scales: {
+          xAxis: {stacked: true},
+          yAxis: {stacked: true, ticks: {precision: 0}}
+        }
+      }
+    });
+  });
+
+  $.getJSON(<%= raw url_for(:controller => 'deployments', :action => 'graph',
+    :project_id => @project, :graph => "deployments_per_author").to_json %>, function(data){
+
+    new Chart(document.getElementById("deployments_per_author").getContext("2d"), {
+      type: 'bar',
+      data: {labels: data['labels'], datasets: deploymentDatasets(data)},
+      options: {
+        indexAxis: 'y',
+        elements: {bar: {borderWidth: 2}},
+        responsive: true,
+        plugins: {
+          legend: {position: 'right'},
+          title: {display: true, text: <%= raw l(:label_deployments_per_author).to_json %>}
+        },
+        scales: {
+          xAxis: {stacked: true, ticks: {precision: 0}},
+          yAxis: {stacked: true}
+        }
+      }
+    });
+  });
+});
+<% end %>
+
+
+<p><%= link_to l(:button_back), project_deployments_path(@project) %></p>
+
+<% content_for :sidebar do %>
+  <%= render :partial => 'deployments/sidebar' %>
+<% end %>
+
+<% html_title(l(:label_deployments), l(:label_statistics)) -%>
+
+<% content_for :header_tags do %>
+  <%= javascript_include_tag "chart.min" %>
+<% end %>
