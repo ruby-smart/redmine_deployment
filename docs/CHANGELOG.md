@@ -1,5 +1,8 @@
 # redmine deployment - CHANGELOG
 
+## 2026-07-08 v1.2.1
+* **[fix]** severe issue-page lag introduced in v1.2.0 — the "Deployments" tab no longer resolves matching deployments (and walks the commit DAG) on every issue show render; the tab is now shown whenever the issue has changesets and the matching deployments are computed lazily only when the tab is opened
+
 ## 2026-07-08 v1.2.0
 * **[add]** "Deployments" tab on the issue page, listing every deployment whose commit range includes one of the issue's changesets _(shown only with the `view_deployments` permission)_
 * **[add]** DAG-based changeset resolution — `Deployment#changesets` now walks the git parent graph (`from..to`, like `git log from..to`) instead of a commit-time window, correctly excluding commits from other branches that were never merged

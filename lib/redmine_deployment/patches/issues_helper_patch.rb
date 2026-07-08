@@ -15,7 +15,7 @@ module RedmineDeployment
         def issue_history_tabs_with_deployment
           tabs = issue_history_tabs_without_deployment
 
-          if User.current.allowed_to?(:view_deployments, @project) && issue_deployments.present?
+          if show_deployments_tab?
             tabs <<
               {
                 :name    => 'deployments',
@@ -31,11 +31,15 @@ module RedmineDeployment
           tabs
         end
 
-        # Deployments associated with the currently shown issue, memoized so the (potentially
-        # expensive) lookup runs at most once per request. Only used to decide whether the tab
-        # is shown; the tab content itself is loaded remotely via IssuesController#issue_tab.
-        def issue_deployments
-          @issue_deployments ||= @issue ? @issue.deployments.to_a : []
+        # Whether to show the "Deployments" tab on the issue page. We deliberately do NOT compute
+        # the actual matching deployments here: that requires walking the commit DAG per candidate
+        # deployment (see Deployment#changesets / Issue#deployments) and running it on every issue
+        # show render caused severe page lag. Instead we show the tab whenever the issue has any
+        # changesets and the user may view deployments; the (potentially empty) list of matching
+        # deployments is computed lazily when the tab is opened, via IssuesController#issue_tab.
+        def show_deployments_tab?
+          User.current.allowed_to?(:view_deployments, @project) &&
+            @issue.present? && @issue.changesets.exists?
         end
       end
     end
