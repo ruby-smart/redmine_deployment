@@ -21,9 +21,13 @@
     <div class="attribute">
       <div class="label"><%= l(:label_repository) %></div>
       <div class="value">
-        <%= link_to @deployment.repository.identifier.presence || l(:label_repository),
-                    url_for(:controller => 'repositories', :action => 'show',
-                            :id => @deployment.project, :repository_id => @deployment.repository.identifier_param) %>
+        <% if @deployment.repository %>
+          <%= link_to @deployment.repository.identifier.presence || l(:label_repository),
+                      url_for(:controller => 'repositories', :action => 'show',
+                              :id => @deployment.project, :repository_id => @deployment.repository.identifier_param) %>
+        <% else %>
+          <span class="deleted-repository"><%= l(:label_deployment_repository_deleted) %></span>
+        <% end %>
       </div>
     </div>
     <div class="attribute">
@@ -36,11 +40,19 @@
     </div>
     <div class="attribute">
       <div class="label"><%= l(:label_branch) %></div>
-      <div class="value"><%= link_to(@deployment.branch.presence || l(:label_none), {controller: :repositories, action: :show, id: @project.identifier, repository_id: @deployment.repository.identifier, rev: @deployment.branch}, {class: 'branch'}) %></div>
+      <div class="value">
+        <% if @deployment.branch.blank? %>
+          <%= l(:label_none) %>
+        <% elsif @deployment.repository %>
+          <%= link_to(@deployment.branch, {controller: :repositories, action: :show, id: @project.identifier, repository_id: @deployment.repository.identifier, rev: @deployment.branch}, {class: 'branch'}) %>
+        <% else %>
+          <%= @deployment.branch %>
+        <% end %>
+      </div>
     </div>
     <div class="attribute">
       <div class="label"><%= l(:label_revision_plural) %></div>
-      <div class="value"><%= @deployment.revisions %></div>
+      <div class="value"><%= link_to_deployment_revisions(@deployment) %></div>
     </div>
     <div class="attribute">
       <div class="label"><%= l(:field_servers) %></div>

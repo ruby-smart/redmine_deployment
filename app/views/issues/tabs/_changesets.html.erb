@@ -12,5 +12,7 @@
       <% end %>
     <% end %>
   </div>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
 <% end %>
 <%= render(:parent, {project: project}) %>

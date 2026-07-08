@@ -18,19 +18,7 @@ module RedmineDeployment
           when :from_revision, :to_revision
             value.blank? ? "-" : link_to_revision_from_deployment(item, column.name)
           when :revisions
-            if item.to_revision.present? && item.from_revision.present?
-              ret = ''.html_safe
-              ret << link_to_revision_from_deployment(item, :from_revision)
-              ret << ' ... '
-              ret << link_to_revision_from_deployment(item, :to_revision)
-              ret
-            elsif item.to_revision.present?
-              "000000 ... #{link_to_revision_from_deployment(item, :to_revision)}".html_safe
-            elsif item.from_revision.present?
-              "#{link_to_revision_from_deployment(item, :from_revision)} ... ?".html_safe
-            else
-              "-"
-            end
+            link_to_deployment_revisions(item)
           when :result
             I18n.t(value, scope: 'results')
           else
@@ -46,6 +34,25 @@ module RedmineDeployment
 
           # return link
           link_to(rev[0..7], controller: :repositories, action: :revision, repository_id: deployment.repository.identifier, id: deployment.project.identifier, rev: rev)
+        end
+
+        # Linked "from ... to" revision range for a deployment, mirroring
+        # Deployment#revisions but with each revision rendered as a link to the
+        # repository revision page (falls back to plain text without a repository).
+        def link_to_deployment_revisions(deployment)
+          if deployment.to_revision.present? && deployment.from_revision.present?
+            ret = ''.html_safe
+            ret << link_to_revision_from_deployment(deployment, :from_revision)
+            ret << ' ... '
+            ret << link_to_revision_from_deployment(deployment, :to_revision)
+            ret
+          elsif deployment.to_revision.present?
+            "000000 ... #{link_to_revision_from_deployment(deployment, :to_revision)}".html_safe
+          elsif deployment.from_revision.present?
+            "#{link_to_revision_from_deployment(deployment, :from_revision)} ... ?".html_safe
+          else
+            "-"
+          end
         end
 
         def redirect_to_deployment_query(options)

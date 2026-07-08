@@ -1,5 +1,17 @@
 # redmine deployment - CHANGELOG
 
+## 2026-07-08 v1.2.0
+* **[add]** "Deployments" tab on the issue page, listing every deployment whose commit range includes one of the issue's changesets _(shown only with the `view_deployments` permission)_
+* **[add]** DAG-based changeset resolution — `Deployment#changesets` now walks the git parent graph (`from..to`, like `git log from..to`) instead of a commit-time window, correctly excluding commits from other branches that were never merged
+* **[add]** `changesets_unavailable_reason` with explanatory notices when a range can't be computed _(no repository, commit graph unavailable, or deployed revision not yet fetched)_
+* **[add]** `ChangesetParent` model — read-only access to the `changeset_parents` commit DAG for efficient graph traversal
+* **[add]** `MAX_TRAVERSAL` guard against pathological histories, logged rather than silently truncated
+* **[add]** test suite _(deployment model, issue↔deployment matching, issue tab, revision-links helper)_
+* **[add]** `label_deployment_plural` and changeset-unavailable / repository-deleted locale strings _(en + de)_
+* **[ref]** extracted the linked "from ... to" revision range into a shared `link_to_deployment_revisions` helper, now reused on the detail page and issue tab
+* **[fix]** deployments details page shows unassigned issues
+* **[fix]** deployments now survive deletion of their repository — `repository` association is optional _(still required on create)_, and API/HTML views degrade gracefully when it is gone
+
 ## 2026-06-16 v1.1.1
 * **[add]** contextual navigation between the deployments overview & statistics pages
 * **[add]** branch value on the detail page links to the repository branch

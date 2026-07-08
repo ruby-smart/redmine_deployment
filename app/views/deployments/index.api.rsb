@@ -5,7 +5,9 @@ api.array :deployments, api_meta(:total_count => @deployments_count, :offset => 
 
 	    api.author(:id => deployment.author_id, :name => deployment.author.name)
 	    api.project(:id => deployment.project.id,  :name => deployment.project.name)
-	    api.repository(:id => deployment.repository.id,  :name => deployment.repository.identifier)
+	    if deployment.repository
+	      api.repository(:id => deployment.repository.id,  :name => deployment.repository.identifier)
+	    end
 
 	    api.from_revision deployment.from_revision
 	    api.to_revision deployment.to_revision

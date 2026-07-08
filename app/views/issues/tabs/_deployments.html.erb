@@ -1,0 +1,30 @@
+<% if deployments.present? %>
+  <table class="list deployments">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th><%= l(:field_result) %></th>
+        <th><%= l(:label_environment) %></th>
+        <th><%= l(:label_revision_plural) %></th>
+        <th><%= l(:field_author) %></th>
+        <th><%= l(:field_created_on) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% deployments.each do |deployment| %>
+        <tr id="deployment-<%= h(deployment.id) %>" class="deployment deployment-<%= deployment.result %> <%= cycle('odd', 'even') %>">
+          <td class="id"><%= link_to "##{deployment.id}", project_deployment_path(deployment.project, deployment) %></td>
+          <td class="result">
+            <span class="deployment-result deployment-<%= deployment.result %>"><%= t(deployment.result, :scope => 'results') %></span>
+          </td>
+          <td class="environment"><%= deployment.environment.presence || l(:label_none) %></td>
+          <td class="revisions"><%= link_to_deployment_revisions(deployment) %></td>
+          <td class="author"><%= link_to_user(deployment.author) %></td>
+          <td class="created_on"><%= format_time(deployment.created_on) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>

@@ -2,6 +2,7 @@ en:
   deployments: Deployments
   label_deployment: Deployment
   label_deployments: Deployment
+  label_deployment_plural: Deployments
   permission_view_deployments: view Deployments
   permission_create_deployments: create Deployments (API)
   project_module_deployment: Deployment
@@ -12,6 +13,10 @@ en:
   label_deployment_statistics: Deployment statistics
   label_deployments_per_month: Successful deployments per month
   label_deployments_per_author: Successful deployments per author
+  label_deployment_changesets_revision_not_found: The deployed revision has not been fetched into Redmine yet, so the related changesets cannot be determined.
+  label_deployment_changesets_dag_unavailable: The commit history for this repository is not available, so the related changesets cannot be determined.
+  label_deployment_changesets_no_repository: No repository is associated with this deployment.
+  label_deployment_repository_deleted: "- Repository deleted -"
   results:
     success: success
     fail: fail
