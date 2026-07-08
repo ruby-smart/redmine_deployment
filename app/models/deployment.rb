@@ -50,7 +50,7 @@ class Deployment < ApplicationRecord
   def changesets
     return Changeset.none if changesets_unavailable_reason
 
-    ids = commit_range_ids(resolved_from_changeset, resolved_to_changeset)
+    ids = changeset_range_ids
     ids.empty? ? Changeset.none : repository.changesets.where(:id => ids)
   end
 
@@ -77,6 +77,15 @@ class Deployment < ApplicationRecord
   end
 
   private
+
+  # Ids of the changesets in this deployment's +from..to+ range, memoized so the (expensive) DAG
+  # walk runs at most once per instance even when +changesets+/+related_issues+ are both called
+  # in a single request (e.g. the deployment show page).
+  def changeset_range_ids
+    return @changeset_range_ids if defined?(@changeset_range_ids)
+
+    @changeset_range_ids = commit_range_ids(resolved_from_changeset, resolved_to_changeset)
+  end
 
   def resolved_from_changeset
     return @resolved_from_changeset if defined?(@resolved_from_changeset)

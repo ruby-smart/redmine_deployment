@@ -53,6 +53,16 @@ class IssueDeploymentsTest < ActiveSupport::TestCase
     assert_empty @issue.deployments
   end
 
+  def test_issue_deployments_excludes_deployments_created_before_the_issue
+    @issue.changesets << @c
+    # Range contains the issue's changeset, but the deploy happened before the issue existed,
+    # so it cannot actually have deployed this issue's work and is pruned without a DAG walk.
+    create_deployment(:from_revision => @a.revision, :to_revision => @d.revision,
+                      :created_on => @issue.created_on - 1.hour)
+
+    assert_empty @issue.deployments
+  end
+
   def test_issue_deployments_orders_newest_first
     @issue.changesets << @c
     older = create_deployment(:from_revision => @a.revision, :to_revision => @d.revision,

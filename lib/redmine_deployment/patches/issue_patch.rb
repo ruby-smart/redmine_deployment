@@ -17,8 +17,15 @@ module RedmineDeployment
           changeset_ids_by_repository = changesets.group_by(&:repository_id)
           return Deployment.none if changeset_ids_by_repository.empty?
 
+          # A deployment can only contain one of this issue's changesets if it happened after the
+          # issue existed (the changeset references the issue, so it was committed — and therefore
+          # deployed — no earlier than the issue's creation) and no later than now. Pruning by
+          # +created_on+ first drops the vast majority of candidates cheaply, so the expensive
+          # per-candidate DAG membership check below runs on only a handful of deployments.
           candidates = Deployment.
             where(:repository_id => changeset_ids_by_repository.keys).
+            where("#{Deployment.table_name}.created_on >= ?", created_on).
+            where("#{Deployment.table_name}.created_on <= ?", Time.now).
             order("#{Deployment.table_name}.created_on DESC")
 
           matching = candidates.select do |deployment|
