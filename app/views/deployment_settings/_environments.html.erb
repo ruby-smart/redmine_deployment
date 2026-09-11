@@ -1,0 +1,41 @@
+<%# The deployment pipeline as table (deployment_environments.js): the static step "Code", then the environments -
+    saved as text, one line per row in the order of the table (hidden field +field_name+): "code | | <label> | <color>"
+    and "<type> | <value> | <label> | <color>", every row is checked with the pattern of the parser
+    (RedmineDeployment::Environments::PATTERN).
+    locals: field_name, code, environments, disabled (read-only, e.g. the central pipeline of a project) %>
+<% disabled = local_assigns[:disabled] %>
+<div class="deployment-environments<%= ' deployment-environments-disabled' if disabled %>">
+  <label><%= l(:label_deployment_environments) %></label>
+  <%= hidden_field_tag field_name, RedmineDeployment::Environments.text(code, environments),
+                       id: nil, class: 'deployment-environments-field', disabled: disabled,
+                       data: { pattern: RedmineDeployment::Environments::PATTERN,
+                               message: l(:text_deployment_environments_invalid, lines: '%{lines}'),
+                               colors: RedmineDeployment::Environments::DEFAULT_COLORS.map { |name| RedmineDeployment::Environments::COLORS[name] } } %>
+  <table class="list deployment-environments-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th><%= l(:label_deployment_environment_type) %></th>
+        <th><%= l(:label_deployment_environment_value) %></th>
+        <th><%= l(:label_deployment_environment_label) %></th>
+        <th><%= l(:label_deployment_environment_color) %></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <%= render partial: 'deployment_settings/code', locals: { code: code } %>
+      <%= render partial: 'deployment_settings/environment', collection: environments, as: :environment %>
+    </tbody>
+  </table>
+  <template class="deployment-environment-template">
+    <%= render partial: 'deployment_settings/environment', locals: { environment: RedmineDeployment::Environments::Environment.new('deployment', '', '', nil) } %>
+  </template>
+  <p class="deployment-environments-empty"<%= ' style="display: none;"'.html_safe if environments.any? %>><%= l(:text_deployment_environments_empty) %></p>
+  <a href="#" class="icon icon-add deployment-environment-add"><%= l(:label_deployment_environment_add) %></a>
+  <span class="deployment-environments-error" style="display: none;"></span>
+  <em class="info"><%= l(:text_deployment_environments) %></em>
+</div>
+
+<% content_for :header_tags do %>
+  <%= javascript_include_tag 'deployment_environments', plugin: 'redmine_deployment' %>
+<% end %>

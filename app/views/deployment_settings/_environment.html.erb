@@ -1,0 +1,13 @@
+<%# one deploy environment (a row of the environments table) - the fields have no names: the table is saved as text
+    (deployment_environments.js) %>
+<tr class="deployment-environment">
+  <td class="deploy-env-handle"><span class="icon-only icon-sort-handle sort-handle" title="<%= l(:button_sort) %>"></span></td>
+  <td>
+    <%= select_tag nil, options_for_select(RedmineDeployment::Environments::TYPES.map { |type| [l("label_deployment_environment_type_#{type}"), type] }, environment.type),
+                   name: nil, id: nil, class: 'deploy-env-type', title: l(:label_deployment_environment_type) %>
+  </td>
+  <td><%= tag.input type: 'text', value: environment.value, class: 'deploy-env-value', size: 16, placeholder: l(:text_deployment_environment_value), title: l(:label_deployment_environment_value) %></td>
+  <td><%= tag.input type: 'text', value: environment.label, class: 'deploy-env-label', size: 16, title: l(:label_deployment_environment_label) %></td>
+  <td><%= tag.input type: 'color', value: environment.color || RedmineDeployment::Environments::CODE_COLOR, class: 'deploy-env-color', title: l(:label_deployment_environment_color) %></td>
+  <td class="buttons"><a href="#" class="icon-only icon-del deploy-env-delete" title="<%= l(:button_delete) %>"><%= l(:button_delete) %></a></td>
+</tr>

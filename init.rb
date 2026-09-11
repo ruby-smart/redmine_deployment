@@ -10,6 +10,9 @@ Redmine::Plugin.register :redmine_deployment do
   # redmine requirements
   requires_redmine version_or_higher: '4.0'
 
+  # the central deploy environments (RedmineDeployment::Environments) - a project can override them
+  settings default: { 'environments' => nil }, partial: 'settings/redmine_deployment'
+
   project_module :deployment do
     permission :view_deployments, {
       :deployments => [:show, :index, :stats, :graph],
@@ -18,6 +21,11 @@ Redmine::Plugin.register :redmine_deployment do
     permission :create_deployments, {
       :deployments => [:create], caption: :label_create_deployments
     }
+
+    # the project's own deploy environments (project settings, tab "Deployment")
+    permission :manage_deployment_settings, {
+      :projects => :settings, :deployment_settings => [:update]
+    }, :require => :member
   end
 
   menu :project_menu, :deployments, {controller: :deployments, action: :index}, caption: :label_deployment, param: :project_id

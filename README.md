@@ -54,6 +54,17 @@ A plugin for repository deployments
   * logs DateTime, Author, Branch, Revisions, Environment, Servers, Project & Repository
 * belongs to project & repository
 * supports queries
+* **Deployment pipeline** _(the deploy status of issues)_: "Code" _(the changesets of the issue)_, followed by the deploy environments - every step in its color, reached / partial _(newer commits pending)_ / not reached:
+  * managed as a table: centrally in the plugin settings _(Administration » Plugins)_ and overridable per project _(project settings, tab "Deployment", permission "Manage deployment pipeline")_ - both are stored in the plugin settings _(`DeploymentSetting`, like redmine_contacts: `environments` and `projects` => `{ <project id> => { custom, environments } }`)_
+  * "Code" is the static first step - only its label and color can be changed; the other steps are sortable by drag & drop
+  * type "Branch": reached, if the commits are merged into the branch of the repository _(ancestors of the branch head, which has to be fetched into Redmine)_
+  * type "Deployment": reached by a successful deployment of the environment _(its commit range, like `git log from..to`)_
+  * stored as text, one step per line: `code | | label | color` and `type | value | label | color` _(color: 12 names or `#rrggbb`, default by position - the last environment is green)_, every row is checked by the pattern of the parser
+  * shown on the issue page _(right of the subject: indicator and badge)_ and available for other plugins: `RedmineDeployment::DeployStatus` _(all issues at once, the commit ranges are computed by a recursive SQL query and cached)_ and the central render methods of `DeploymentStatusHelper` _(e.g. the SCRUM taskboard of RI-Customizations)_:
+    * `deployment_indicator(status)` - the segments: "Code", then every environment in its color
+    * `deployment_badge(status)` - the last reached step in its color _(live filled, reached outlined, newer commits pending dashed)_
+    * `deployment_pipeline(status)` - indicator and badge
+  * issue queries: the columns "Deploy indicator" and "Deploy badge" _(with the module "deployment" and the permission "view deployments"; the deploy statuses of the listed issues are loaded at once, CSV/PDF as text)_
 * Additional _(side)_ features:
   * Adds Branches-lookup for changesets _(so related branches are shown in Revision details)_ `GIT-only`
   * Adds Branches-summary for related-issues _(so branches are shown in issue-changesets-tab)_ `GIT-only`
@@ -69,7 +80,7 @@ A plugin for repository deployments
     ```
 * run rake task
     ```
-    rake redmine:plugins
+    rake redmine:plugins:migrate RAILS_ENV=production
     ```
 * restart server
 

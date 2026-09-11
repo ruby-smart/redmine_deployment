@@ -17,6 +17,31 @@ en:
   label_deployment_changesets_dag_unavailable: The commit history for this repository is not available, so the related changesets cannot be determined.
   label_deployment_changesets_no_repository: No repository is associated with this deployment.
   label_deployment_repository_deleted: "- Repository deleted -"
+  permission_manage_deployment_settings: Manage deployment pipeline
+  label_deployment_code: Code
+  label_deployment_indicator: Deploy indicator
+  label_deployment_badge: Deploy badge
+  label_deployment_partial: "%{environment}, newer commits pending"
+  label_deployment_commits:
+    one: "1 commit"
+    other: "%{count} commits"
+  label_deployment_live_since: "Live since %{time}"
+  label_deployment_environments: Deployment pipeline
+  label_deployment_environments_custom: Own deployment pipeline
+  text_deployment_environments_custom: "The project defines its own deployment pipeline. Unchecked: the central deployment pipeline (Administration » Plugins » Redmine Deployment plugin)."
+  text_deployment_environments_central: "The central deployment pipeline - used by all projects without an own deployment pipeline (project settings, tab 'Deployment')."
+  text_deployment_environments: "The steps in the order of the table: 'Code' (the commits of the issue) is always the first step - only its label and color can be changed. The other steps are sortable by drag & drop at the handle. Type 'Branch': reached, if the commits are merged into the branch (value, e.g. develop) of the repository. Type 'Deployment': reached by a successful deployment of the environment (value, e.g. production). The label is optional (default: the value)."
+  text_deployment_environments_invalid: "Invalid entries in row %{lines}: the value is required, value and label must not contain '|'."
+  text_deployment_environments_empty: No steps after 'Code' - the deploy status is hidden.
+  label_deployment_environment_type: Type
+  label_deployment_environment_value: Value
+  label_deployment_environment_label: Label
+  label_deployment_environment_color: Color
+  label_deployment_environment_add: Add environment
+  label_deployment_environment_type_branch: Branch
+  label_deployment_environment_type_deployment: Deployment
+  label_deployment_environment_type_code: Code
+  text_deployment_environment_value: branch or environment
   results:
     success: success
     fail: fail

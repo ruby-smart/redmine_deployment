@@ -1,5 +1,11 @@
 # redmine deployment - CHANGELOG
 
+## unreleased
+* **[add]** deployment pipeline: "Code", followed by the deploy environments _(type "Branch": merged into the branch, type "Deployment": a successful deployment of the environment)_, each in its own color - managed as a table _(drag & drop, color picker)_ centrally in the plugin settings and overridable per project _(project settings, tab "Deployment", new permission `manage_deployment_settings`; stored in the plugin settings like redmine_contacts: `projects` => `{ <project id> => { custom, environments } }` - see `DeploymentSetting`)_; "Code" is a static step with a changeable label and color
+* **[add]** deploy status of issues (`RedmineDeployment::DeployStatus`): resolved for many issues at once with the pipeline of each project - the commit range of a deployment and the ancestors of a branch head are computed by a recursive SQL query and cached
+* **[add]** issue query columns "Deploy indicator" and "Deploy badge" _(loaded for all listed issues at once - `Issue.load_deployment_statuses`, CSV/PDF export as text)_
+* **[add]** deploy status on the issue page, right of the subject _(indicator and badge, projects with the module "deployment")_ - `DeploymentStatusHelper` with the central render methods `deployment_indicator`, `deployment_badge` and `deployment_pipeline` for other plugins _(taken over from RI-Customizations, whose former setting is moved by its migration)_
+
 ## 2026-07-08 v1.2.2
 * **[fix]** deployment↔issue matching could take >60s — `Issue#deployments` now prunes candidate deployments by `created_on` _(after the issue was created, at or before now)_ before running the per-candidate commit-DAG membership check, so the expensive walk runs on only a handful of deployments instead of every deployment on the repository
 * **[ref]** memoize `Deployment#changesets`' DAG-range computation so the walk runs at most once per instance _(the detail page previously walked it twice, via `changesets` and `related_issues`)_

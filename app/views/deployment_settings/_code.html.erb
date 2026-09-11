@@ -1,0 +1,9 @@
+<%# the step "Code" (the first row of the pipeline table): static - only its label and color can be changed %>
+<tr class="deployment-code">
+  <td class="deploy-env-handle"></td>
+  <td class="deploy-env-static"><%= l(:label_deployment_environment_type_code) %></td>
+  <td class="deploy-env-static">&ndash;</td>
+  <td><%= tag.input type: 'text', value: code.label, class: 'deploy-env-label', size: 16, placeholder: l(:label_deployment_code), title: l(:label_deployment_environment_label) %></td>
+  <td><%= tag.input type: 'color', value: code.color || RedmineDeployment::Environments::CODE_COLOR, class: 'deploy-env-color', title: l(:label_deployment_environment_color) %></td>
+  <td></td>
+</tr>

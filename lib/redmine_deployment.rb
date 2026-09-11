@@ -9,5 +9,8 @@ redmine_deployment/patches/application_helper_patch
 redmine_deployment/patches/queries_helper_patch
 redmine_deployment/patches/issues_helper_patch
 redmine_deployment/patches/issues_controller_patch
+redmine_deployment/patches/projects_helper_patch
+redmine_deployment/patches/issue_query_patch
+redmine_deployment/patches/setting_patch
 redmine_deployment/hooks/views_layouts_hook
 ].each { |file| require(base_path + '/' + file) }

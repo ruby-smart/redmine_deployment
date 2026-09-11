@@ -3,15 +3,25 @@ module RedmineDeployment
     module QueriesHelperPatch
       def self.included(base)
         # :nodoc:
+        base.send(:include, DeploymentStatusHelper)
         base.send(:include, InstanceMethods)
         base.class_eval do
           alias_method :column_value_without_deployment, :column_value
           alias_method :column_value, :column_value_with_deployment
+
+          alias_method :csv_value_without_deployment, :csv_value
+          alias_method :csv_value, :csv_value_with_deployment
         end
       end
 
       module InstanceMethods
         def column_value_with_deployment(column, item, value)
+          # issue queries: the deploy indicator and the deploy badge (see IssueQueryPatch)
+          if item.is_a?(Issue) && RedmineDeployment::Patches::IssueQueryPatch::DEPLOYMENT_COLUMNS.include?(column.name)
+            return ''.html_safe unless value
+
+            return column.name == :deployment_indicator ? deployment_indicator(value) : deployment_badge(value)
+          end
           return column_value_without_deployment(column, item, value) unless item.is_a?(Deployment)
 
           case column.name
@@ -24,6 +34,16 @@ module RedmineDeployment
           else
             column_value_without_deployment(column, item, value)
           end
+        end
+
+        # CSV and PDF: the deploy status as text
+        def csv_value_with_deployment(column, object, value)
+          if object.is_a?(Issue) && RedmineDeployment::Patches::IssueQueryPatch::DEPLOYMENT_COLUMNS.include?(column.name)
+            return '' unless value
+
+            return column.name == :deployment_indicator ? deployment_indicator_text(value) : deployment_status_label(value)
+          end
+          csv_value_without_deployment(column, object, value)
         end
 
         def link_to_revision_from_deployment(deployment, target)

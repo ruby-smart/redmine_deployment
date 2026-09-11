@@ -4,14 +4,26 @@ module RedmineDeployment
   module Patches
     module IssuesHelperPatch
       def self.included(base) # :nodoc:
+        base.send(:include, DeploymentStatusHelper)
         base.send(:include, InstanceMethods)
         base.class_eval do
           alias_method :issue_history_tabs_without_deployment, :issue_history_tabs
           alias_method :issue_history_tabs, :issue_history_tabs_with_deployment
+
+          alias_method :render_issue_subject_with_tree_without_deployment, :render_issue_subject_with_tree
+          alias_method :render_issue_subject_with_tree, :render_issue_subject_with_tree_with_deployment
         end
       end
 
       module InstanceMethods
+        # The issue page: the deploy status of the issue right of its subject (the h3 in the details box) - it floats
+        # right in front of the subject (see DeploymentStatusHelper#deployment_issue_status).
+        def render_issue_subject_with_tree_with_deployment(issue)
+          html   = render_issue_subject_with_tree_without_deployment(issue)
+          status = deployment_issue_status(issue)
+          status.present? ? html.to_str.sub('<h3>', "#{status}<h3>").html_safe : html
+        end
+
         def issue_history_tabs_with_deployment
           tabs = issue_history_tabs_without_deployment
 

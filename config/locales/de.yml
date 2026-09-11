@@ -17,6 +17,31 @@ de:
   label_deployment_changesets_dag_unavailable: Die Commit-Historie dieses Repositorys ist nicht verfügbar, daher können die zugehörigen Changesets nicht ermittelt werden.
   label_deployment_changesets_no_repository: Diesem Deployment ist kein Repository zugeordnet.
   label_deployment_repository_deleted: "- Repository gelöscht -"
+  permission_manage_deployment_settings: Deployment-Pipeline verwalten
+  label_deployment_code: Code
+  label_deployment_indicator: Deploy-Indikator
+  label_deployment_badge: Deploy-Badge
+  label_deployment_partial: "%{environment}, neuere Commits offen"
+  label_deployment_commits:
+    one: "1 Commit"
+    other: "%{count} Commits"
+  label_deployment_live_since: "Live seit %{time}"
+  label_deployment_environments: Deployment-Pipeline
+  label_deployment_environments_custom: Eigene Deployment-Pipeline
+  text_deployment_environments_custom: "Das Projekt definiert eine eigene Deployment-Pipeline. Ohne Haken gilt die zentrale Deployment-Pipeline (Administration » Plugins » Redmine Deployment plugin)."
+  text_deployment_environments_central: "Die zentrale Deployment-Pipeline - sie gilt für alle Projekte ohne eigene Deployment-Pipeline (Projekt-Einstellungen, Tab 'Deployment')."
+  text_deployment_environments: "Die Stufen in der Reihenfolge der Tabelle: 'Code' (die Commits des Tickets) ist immer die erste Stufe - nur Bezeichnung und Farbe sind änderbar. Die weiteren Stufen sind per Drag & Drop am Griff sortierbar. Typ 'Branch': erreicht, wenn die Commits in den Branch (Wert, z. B. develop) des Repositorys gemergt sind. Typ 'Deployment': erreicht durch ein erfolgreiches Deployment der Umgebung (Wert, z. B. production). Die Bezeichnung ist optional (Standard: der Wert)."
+  text_deployment_environments_invalid: "Ungültige Einträge in Zeile %{lines}: der Wert ist Pflicht, Wert und Bezeichnung dürfen kein '|' enthalten."
+  text_deployment_environments_empty: Keine Stufen nach 'Code' - die Deploy-Anzeige ist ausgeblendet.
+  label_deployment_environment_type: Typ
+  label_deployment_environment_value: Wert
+  label_deployment_environment_label: Bezeichnung
+  label_deployment_environment_color: Farbe
+  label_deployment_environment_add: Umgebung hinzufügen
+  label_deployment_environment_type_branch: Branch
+  label_deployment_environment_type_deployment: Deployment
+  label_deployment_environment_type_code: Code
+  text_deployment_environment_value: Branch bzw. Umgebung
   results:
     success: erfolgreich
     fail: fehlgeschlagen

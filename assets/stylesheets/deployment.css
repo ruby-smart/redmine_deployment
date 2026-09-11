@@ -27,3 +27,53 @@ a.branch:hover span.badge{
 .deployment-graph{
     margin-bottom: 2em;
 }
+
+/* Redmine hides the "no data" notice inside #history
+   (`#history p.nodata {display: none;}` in application.css), because an issue's
+   history is never empty. The tab lives in the same container but
+   can legitimately be empty, so the notice is shown again here. */
+#history #tab-content-deployments p.nodata {
+    display: block;
+}
+
+/* deploy status (DeploymentStatusHelper): the pipeline = the indicator (segments: "Code", then every environment in
+   its color --e - reached filled, partial striped, not reached grey) and the badge (the last reached step) */
+.deploy-pipe { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; min-width: 0; max-width: 100%; }
+.deploy-seg { display: inline-flex; align-items: center; gap: 2px; flex: none; vertical-align: middle; }
+.deploy-seg i { display: inline-block; width: 9px; height: 5px; border-radius: 1px; background: #d7dbe0; }
+.deploy-seg i.on { background: var(--e, #66707a); }
+.deploy-seg i.partial { background: repeating-linear-gradient(135deg, var(--e, #66707a) 0 2px, #d7dbe0 2px 4px); }
+/* the badge in the color of the last reached step (--e): live filled, reached outlined, partial dashed */
+.deploy-badge { display: inline-block; flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; font-size: 10.5px; line-height: 15px; padding: 0 6px; color: var(--e, #66707a); border: 1px solid currentColor; border-radius: 8px; box-sizing: border-box; }
+.deploy-badge-live { background: var(--e, #2f9e44); border-color: var(--e, #2f9e44); color: #fff; font-weight: 600; }
+.deploy-badge-partial { border-style: dashed; }
+
+/* issue page: the deploy status right of the subject */
+div.issue div.subject .deploy-issue-status { float: right; margin: 3px 0 0 12px; }
+div.issue div.subject .deploy-issue-status .deploy-pipe { gap: 6px; }
+div.issue div.subject .deploy-issue-status .deploy-seg { gap: 3px; }
+div.issue div.subject .deploy-issue-status .deploy-seg i { width: 16px; height: 7px; border-radius: 2px; }
+div.issue div.subject .deploy-issue-status .deploy-badge { font-size: 12px; line-height: 18px; padding: 0 8px; border-radius: 10px; }
+
+/* deploy environments table (plugin settings, project settings) */
+.deployment-environments { padding: 3px 0 3px 180px; clear: left; min-height: 2em; }
+table.deployment-environments-table { width: auto; min-width: 520px; max-width: 95%; margin-bottom: 4px; }
+table.deployment-environments-table td { padding: 2px 6px; text-align: left; }
+table.deployment-environments-table td.deploy-env-handle,
+table.deployment-environments-table td.buttons { width: 20px; text-align: center; }
+table.deployment-environments-table select.deploy-env-type { min-width: 120px; }
+table.deployment-environments-table input.deploy-env-color { width: 32px; height: 20px; padding: 0; border: 1px solid #ccc; vertical-align: middle; }
+table.deployment-environments-table tr.deploy-env-invalid td { background: #fdf3f3; }
+table.deployment-environments-table tr.deploy-env-invalid input.deploy-env-value { border-color: #c93c3c; }
+.deployment-environments p.deployment-environments-empty { padding: 0; color: #888; font-style: italic; }
+.deployment-environments .deployment-environments-error { display: block; color: #c93c3c; font-size: 0.9em; margin-top: 2px; }
+/* the central environments of a project without own ones: read-only */
+.deployment-environments-disabled table.deployment-environments-table { opacity: .6; }
+.deployment-environments-disabled .sort-handle,
+.deployment-environments-disabled .deploy-env-delete,
+.deployment-environments-disabled .deployment-environment-add { visibility: hidden; }
+/* the static step "Code" of the pipeline table */
+table.deployment-environments-table tr.deployment-code td.deploy-env-static { color: #666; padding-left: 10px; }
+
+/* issue queries: the columns "deploy indicator" and "deploy badge" */
+table.list.issues td.deployment_indicator, table.list.issues td.deployment_badge { white-space: nowrap; }

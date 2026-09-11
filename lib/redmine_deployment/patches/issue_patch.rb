@@ -5,9 +5,42 @@ module RedmineDeployment
     module IssuePatch
       def self.included(base) # :nodoc:
         base.send(:include, InstanceMethods)
+        base.extend(ClassMethods)
+      end
+
+      module ClassMethods
+        # Loads the deploy status of the issues at once (RedmineDeployment::DeployStatus - no N+1), e.g. for the
+        # deploy columns of an issue query (see IssueQueryPatch).
+        def load_deployment_statuses(issues, user = User.current)
+          issues = issues.to_a
+          return if issues.empty?
+
+          deploy = RedmineDeployment::DeployStatus.new(issues, user: user)
+          issues.each { |issue| issue.deployment_status = deploy.enabled? ? deploy[issue] : nil }
+        end
       end
 
       module InstanceMethods
+        # @return [RedmineDeployment::DeployStatus::Result, nil] the deploy status of the issue for the current user (nil:
+        #   no module "deployment", no permission, no environments or no changesets) - preloaded for issue lists
+        def deployment_status
+          return @deployment_status if defined?(@deployment_status)
+
+          deploy = RedmineDeployment::DeployStatus.new([self])
+          @deployment_status = deploy.enabled? ? deploy[self] : nil
+        end
+
+        attr_writer :deployment_status
+
+        # the values of the query columns "deploy indicator" and "deploy badge" (see IssueQueryPatch)
+        def deployment_indicator
+          deployment_status
+        end
+
+        def deployment_badge
+          deployment_status
+        end
+
         # Deployments whose commit range (see Deployment#changesets) includes at least one
         # of this issue's changesets. There is no stored issue<->deployment link, so we start
         # from the repositories the issue's changesets live in, take the deployments on those

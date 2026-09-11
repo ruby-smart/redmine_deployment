@@ -3,6 +3,9 @@
   resources :deployments, :only => [:index]
 
   resources :projects do
+    # the project's own deploy environments (project settings, tab "Deployment")
+    resource :deployment_settings, :only => [:update]
+
     resources :deployments, :only => [:index, :show, :create] do
       collection do
         get :statistics, :to => 'deployments#stats'

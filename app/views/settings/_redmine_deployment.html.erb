@@ -1,0 +1,6 @@
+<%# plugin settings (Administration » Plugins): the central deploy environments - a project can override them
+    (project settings, tab "Deployment") %>
+<p><em class="info"><%= l(:text_deployment_environments_central) %></em></p>
+<%= render partial: 'deployment_settings/environments',
+           locals: { field_name: 'settings[environments]', code: RedmineDeployment::Environments.global_code,
+                     environments: RedmineDeployment::Environments.global } %>

@@ -4,6 +4,8 @@ module RedmineDeployment
       def self.included(base) # :nodoc:
         base.class_eval do
           has_many :deployments
+          # the project's own deployment pipeline (DeploymentSetting - plugin settings 'projects')
+          after_destroy { DeploymentSetting.delete_project(id) }
         end
       end
     end

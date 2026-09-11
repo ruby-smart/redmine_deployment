@@ -1,0 +1,19 @@
+<%# project settings, tab "Deployment": the project's own deploy environments - or the central ones (plugin settings) %>
+<% custom = DeploymentSetting.custom?(@project) %>
+<% own = DeploymentSetting['environments', @project] %>
+<%= form_tag(project_deployment_settings_path(@project), method: :put, class: 'deployment-project-settings') do %>
+  <div class="box tabular">
+    <p>
+      <label for="deployment_setting_custom"><%= l(:label_deployment_environments_custom) %></label>
+      <%= hidden_field_tag 'deployment_setting[custom]', '0', id: nil %>
+      <%= check_box_tag 'deployment_setting[custom]', '1', custom, id: 'deployment_setting_custom', class: 'deployment-environments-custom' %>
+      <em class="info"><%= l(:text_deployment_environments_custom) %></em>
+    </p>
+    <%# without own environments: the central ones (read-only) - checking the box starts from them %>
+    <%= render partial: 'deployment_settings/environments',
+               locals: { field_name: 'deployment_setting[environments]', disabled: !custom,
+                         code: custom ? RedmineDeployment::Environments.parse_code(own) : RedmineDeployment::Environments.global_code,
+                         environments: custom ? RedmineDeployment::Environments.parse(own) : RedmineDeployment::Environments.global } %>
+  </div>
+  <%= submit_tag l(:button_save) %>
+<% end %>
