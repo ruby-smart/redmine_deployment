@@ -35,11 +35,81 @@ class DeploymentStatusHelperTest < Redmine::HelperTest
                      'span.deploy-badge.deploy-badge-code[style=?][title^=?]', '--e: #c2417f', 'Commits: 2 commits', text: 'Commits'
   end
 
+  # a line without room for the label (the collapsed card of the SCRUM taskboard): only the first letter
+  def test_deployment_badge_short
+    assert_select_in deployment_badge(status([2, 2, 2]), short: true),
+                     'span.deploy-badge.deploy-badge-live.deploy-badge-short[title*=?]', 'Live: 2/2', text: 'L'
+    assert_select_in deployment_badge(status([2, 2, 0]), short: true), 'span.deploy-badge-short', text: 'S'
+    assert_select_in deployment_badge(status([0, 0, 0]), short: true), 'span.deploy-badge-code.deploy-badge-short', text: 'C'
+    # the label of the step decides - its case is kept
+    assert_select_in deployment_badge(status([0, 0, 0], code: Code.new(' commits ', '#c2417f')), short: true),
+                     'span.deploy-badge-short', text: 'c'
+    assert_equal '', deployment_badge_initial(nil)
+  end
+
   def test_pipeline_is_the_indicator_and_the_badge
     html = deployment_pipeline(status([2, 2, 2]))
 
     assert_select_in html, 'span.deploy-pipe.deploy-pipe-live' do
       assert_select '> span.deploy-seg + span.deploy-badge.deploy-badge-live', text: 'Live'
+    end
+  end
+
+  # the whole pipeline (the popup of an issue): every step with what it takes to reach it
+  def test_pipeline_details
+    html = deployment_pipeline_details(status([2, 1, 0], code: Code.new('Revision', '#445566')))
+
+    assert_select_in html, 'div.deploy-steps' do
+      assert_select '> span.deploy-step', 4
+      assert_select '> span.deploy-step-arrow', 3
+      # "Code": the commits of the issue
+      assert_select '> span.deploy-step:first-child' do
+        assert_select 'span.deploy-badge.deploy-badge-code[style=?]', '--e: #445566', text: 'Revision'
+        assert_select 'span.deploy-step-hint', text: 'commits of the issue'
+      end
+      # reached, partly reached, not reached - the last one without a color of its own
+      assert_select 'span.deploy-badge.deploy-badge-reached[style=?]', '--e: #2f6db5', text: 'Develop'
+      assert_select 'span.deploy-badge.deploy-badge-partial[style=?]', '--e: #7657b8', text: 'Staging'
+      assert_select 'span.deploy-step-off span.deploy-badge.deploy-badge-off:not([style])', text: 'Live'
+      # what it takes to reach it: the environment of the deployment
+      assert_select 'span.deploy-step-hint', text: 'deployed to develop'
+      # how many commits of the issue a step has
+      assert_select 'span.deploy-step-count', text: '1/2'
+    end
+    # below the steps: what the tooltip of the indicator used to carry
+    assert_select_in html, 'p.deploy-steps-foot', text: /2 commits/
+  end
+
+  def test_pipeline_details_name_the_branch_of_a_branch_step_and_fill_the_last_one
+    environments = [Environment.new(key: 'branch:develop', label: 'develop', color: '#2f6db5', covered: 2, total: 2),
+                    Environment.new(key: 'deployment:production', label: 'LIVE', color: '#2f9e44', covered: 2, total: 2)]
+    html = deployment_pipeline_details(Status.new(changeset_count: 2, code: Code.new(nil, '#66707a'),
+                                                  environments: environments))
+
+    assert_select_in html, 'div.deploy-steps' do
+      assert_select 'span.deploy-step-hint', text: 'merged into develop'
+      # everything is live: the last step is the filled badge
+      assert_select 'span.deploy-badge.deploy-badge-live', text: 'LIVE'
+    end
+  end
+
+  # the headline: the pipeline of exactly this issue - without one (the tests of the steps) it has none
+  def test_pipeline_details_name_the_issue
+    html = deployment_pipeline_details(status([2, 2, 2]), Issue.find(1))
+
+    assert_select_in html, 'p.deploy-steps-head', text: 'Deployment pipeline - #1'
+    assert_select_in deployment_pipeline_details(status([2, 2, 2])), 'p.deploy-steps-head', 0
+  end
+
+  # an issue without commits: the pipeline still explains itself, nothing of it is reached
+  def test_pipeline_details_of_an_issue_without_commits
+    html = deployment_pipeline_details(Status.new(changeset_count: 0, code: Code.new(nil, '#66707a'),
+                                                  environments: [Environment.new(key: 'deployment:production', label: 'Live',
+                                                                                 color: '#2f9e44', covered: 0, total: 0)]))
+
+    assert_select_in html, 'div.deploy-steps' do
+      assert_select 'span.deploy-step-off', 2
+      assert_select 'span.deploy-badge.deploy-badge-off', 2
     end
   end
 

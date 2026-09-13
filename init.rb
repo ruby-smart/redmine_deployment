@@ -16,6 +16,7 @@ Redmine::Plugin.register :redmine_deployment do
   project_module :deployment do
     permission :view_deployments, {
       :deployments => [:show, :index, :stats, :graph],
+      :deployment_status => [:show],
     }, :read => true, caption: :label_view_deployments
 
     permission :create_deployments, {

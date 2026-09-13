@@ -31,7 +31,7 @@ module RedmineDeployment
             tabs <<
               {
                 :name    => 'deployments',
-                :label   => :label_deployment_plural,
+                :label   => :label_deployment_issue_tab,
                 :remote  => true,
                 :onclick =>
                   "getRemoteTab('deployments', " \

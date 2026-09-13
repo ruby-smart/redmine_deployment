@@ -40,6 +40,14 @@ class IssueDeploymentsTabTest < Redmine::ControllerTest
     end
   end
 
+  # the pipeline of the issue is the popup of its deploy status, not part of the tab
+  def test_issue_tab_carries_no_pipeline
+    get :issue_tab, :params => { :id => @issue.id, :name => 'deployments', :format => 'js' }, :xhr => true
+
+    assert_response :success
+    assert_select 'div.deploy-steps', 0
+  end
+
   def test_issue_tab_deployments_requires_permission
     Role.find(1).remove_permission!(:view_deployments)
 
@@ -52,7 +60,8 @@ class IssueDeploymentsTabTest < Redmine::ControllerTest
     get :show, :params => { :id => @issue.id }
 
     assert_response :success
-    assert_select 'div.tabs a', :text => I18n.t(:label_deployment_plural)
+    # the tab bar of the issue history - the project menu carries a "Deployment" of its own
+    assert_select '#history div.tabs a', :text => I18n.t(:label_deployment_issue_tab)
   end
 
   def test_show_omits_deployments_tab_when_issue_has_none
@@ -61,7 +70,7 @@ class IssueDeploymentsTabTest < Redmine::ControllerTest
     get :show, :params => { :id => other.id }
 
     assert_response :success
-    assert_select 'div.tabs a', :text => I18n.t(:label_deployment_plural), :count => 0
+    assert_select '#history div.tabs a', :text => I18n.t(:label_deployment_issue_tab), :count => 0
   end
 
   private

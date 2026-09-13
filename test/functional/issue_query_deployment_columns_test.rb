@@ -38,7 +38,7 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
 
     assert_response :success
     assert_select 'table.list.issues th', text: 'Deploy indicator'
-    assert_select 'table.list.issues th', text: 'Deploy badge'
+    assert_select 'table.list.issues th', text: 'Deployment'
     assert_select 'tr#issue-1' do
       assert_select 'td.deployment_indicator span.deploy-seg' do
         assert_select 'i', 3
@@ -93,7 +93,7 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
     assert_response :success
     lines = response.body.lines.map(&:chomp)
     assert_include 'Deploy indicator', lines.first
-    assert_include 'Deploy badge', lines.first
+    assert_include 'Deployment', lines.first
     assert(lines.any? { |line| line.include?('Code: 1 commit, Staging: 1/1, Live: 0/1') && line.include?('Staging') }, lines.join("\n"))
   end
 end

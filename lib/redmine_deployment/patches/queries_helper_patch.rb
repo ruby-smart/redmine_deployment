@@ -20,7 +20,10 @@ module RedmineDeployment
           if item.is_a?(Issue) && RedmineDeployment::Patches::IssueQueryPatch::DEPLOYMENT_COLUMNS.include?(column.name)
             return ''.html_safe unless value
 
-            return column.name == :deployment_indicator ? deployment_indicator(value) : deployment_badge(value)
+            # the click opens the pipeline of the issue, so neither of them carries a tooltip
+            return deployment_status_toggle(item) do
+              column.name == :deployment_indicator ? deployment_indicator(value, title: false) : deployment_badge(value, title: false)
+            end
           end
           return column_value_without_deployment(column, item, value) unless item.is_a?(Deployment)
 

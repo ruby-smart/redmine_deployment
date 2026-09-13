@@ -47,6 +47,26 @@ a.branch:hover span.badge{
 .deploy-badge { display: inline-block; flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; font-size: 10.5px; line-height: 15px; padding: 0 6px; color: var(--e, #66707a); border: 1px solid currentColor; border-radius: 8px; box-sizing: border-box; }
 .deploy-badge-live { background: var(--e, #2f9e44); border-color: var(--e, #2f9e44); color: #fff; font-weight: 600; }
 .deploy-badge-partial { border-style: dashed; }
+/* only the first letter (a line without room for the label): a round, evenly sized badge */
+.deploy-badge-short { flex: none; min-width: 16px; padding: 0 4px; text-align: center; overflow: visible; }
+
+/* issue page: the whole pipeline as a popup of the deploy status (deployment_status.js) - every step with what it
+   takes to reach it, the steps the issue has not reached in grey */
+/* the status itself is the button that opens it - it keeps the look of the place it stands in */
+button.deploy-status-toggle { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; border: 0; background: none; padding: 0; margin: 0; height: auto; line-height: inherit; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.deploy-status-toggle:hover { opacity: .75; }
+/* one popup for the whole page, placed at the status it was opened at (deployment_status.js) */
+.deploy-popup { display: none; position: fixed; z-index: 1000; width: max-content; max-width: min(88vw, 720px); box-sizing: border-box; border: 1px solid #c7ccd1; border-radius: 6px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); padding: 12px 14px; text-align: left; white-space: normal; }
+.deploy-steps-head { margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid #eceff1; font-size: 12px; font-weight: 600; color: #1f2933; }
+.deploy-steps { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; margin: 0; }
+.deploy-steps-foot { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid #eceff1; font-size: 11px; color: #66707a; }
+.deploy-step-count { font-size: 10.5px; color: #9aa3ad; font-variant-numeric: tabular-nums; }
+.deploy-step { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; max-width: 150px; text-align: center; }
+.deploy-step .deploy-badge { max-width: 100%; font-size: 12px; line-height: 19px; padding: 0 11px; border-radius: 10px; font-weight: 600; }
+.deploy-step-hint { font-size: 11px; line-height: 1.25; color: #66707a; }
+.deploy-step-arrow { margin-top: 2px; color: #c7ccd1; }
+.deploy-step-off .deploy-step-hint { color: #aab1b8; }
+.deploy-badge.deploy-badge-off { color: #aab1b8; font-weight: normal; }
 
 /* issue page: the deploy status right of the subject */
 div.issue div.subject .deploy-issue-status { float: right; margin: 3px 0 0 12px; }

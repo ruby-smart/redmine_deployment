@@ -179,9 +179,23 @@ class DeploymentSettingsControllerTest < Redmine::ControllerTest
     assert_equal ['Git', '#c93c3c'], RedmineDeployment::Environments.code_for(@project).to_a
     assert RedmineDeployment::Environments.custom?(@project)
     # stored in the plugin settings like redmine_contacts: 'projects' => { <project id> => { ... } }
-    assert_equal({ 'custom' => '1', 'environments' => "code |  | Git | red\r\nbranch | develop | Develop\r\ndeployment | production | Live" },
+    assert_equal({ 'custom' => '1', 'issue_indicator' => '0',
+                   'environments' => "code |  | Git | red\r\nbranch | develop | Develop\r\ndeployment | production | Live" },
                  Setting.plugin_redmine_deployment['projects'][1])
     assert_nil Setting.plugin_redmine_deployment['environments'] # the central pipeline is untouched (default)
+  end
+
+  # the issue pages of a project only carry the deploy indicator when it asks for it
+  def test_update_should_save_the_indicator_of_the_issue_page
+    assert_not DeploymentSetting.issue_indicator?(@project)
+
+    put :update, params: { project_id: 'ecookbook', deployment_setting: { custom: '0', issue_indicator: '1' } }
+
+    assert DeploymentSetting.issue_indicator?(@project)
+
+    put :update, params: { project_id: 'ecookbook', deployment_setting: { custom: '0' } }
+
+    assert_not DeploymentSetting.issue_indicator?(@project)
   end
 
   def test_update_without_own_environments_should_keep_the_stored_ones
@@ -190,7 +204,8 @@ class DeploymentSettingsControllerTest < Redmine::ControllerTest
     # the disabled table is not submitted
     put :update, params: { project_id: 'ecookbook', deployment_setting: { custom: '0' } }
 
-    assert_equal({ 'custom' => '0', 'environments' => 'branch | develop | Develop' }, DeploymentSetting.project_settings(@project))
+    assert_equal({ 'custom' => '0', 'issue_indicator' => '0', 'environments' => 'branch | develop | Develop' },
+                 DeploymentSetting.project_settings(@project))
     assert_not RedmineDeployment::Environments.custom?(@project)
   end
 

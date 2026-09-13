@@ -104,6 +104,25 @@ class DeployStatusTest < ActiveSupport::TestCase
     assert_not result.live?
   end
 
+  # nothing of a failed deployment counts towards the pipeline - not even its existence
+  def test_a_project_with_failed_deployments_only_has_no_deploy_status
+    link(Issue.find(1), @c2)
+    deploy('production', from: @c1, to: @c3, result: Deployment::RESULT_FAIL)
+
+    # environments of the deployment type only: without a successful deployment there is nothing to show
+    status = DeployStatus.new([Issue.find(1)], user: @user,
+                              environments: @environments.select(&:deployment?))
+
+    assert_not status.enabled?
+    assert_nil status[Issue.find(1)]
+
+    # the successful one brings the pipeline back
+    deploy('production', from: @c1, to: @c3)
+    status = DeployStatus.new([Issue.find(1)], user: @user, environments: @environments.select(&:deployment?))
+
+    assert status.enabled?
+  end
+
   def test_delta_ranges_like_redmine_deployment
     # c2 was deployed with the failed deployment only - the next successful one starts after it (from: c3)
     link(Issue.find(1), @c2)

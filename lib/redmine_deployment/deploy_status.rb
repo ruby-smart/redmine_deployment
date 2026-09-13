@@ -91,14 +91,15 @@ module RedmineDeployment
       (@project_codes ||= {})[project.id] ||= Environments.code_for(project)
     end
 
-    # true, if deploy statuses are shown at all: the user may see the deployments of a project with environments and
-    # there are branch environments or deployments
+    # True, if deploy statuses are shown at all: the user may see the deployments of a project with environments and
+    # there are branch environments or successful deployments. A failed deployment is none - nothing of it counts
+    # towards the pipeline (see +covering_deployments+).
     def enabled?
       return @enabled if defined?(@enabled)
 
       @enabled = projects.any? &&
                  (projects.any? { |project| environments_for(project).any?(&:branch?) } ||
-                  ::Deployment.where(project_id: projects.map(&:id)).exists?)
+                  ::Deployment.where(project_id: projects.map(&:id), result: ::Deployment::RESULT_SUCCESS).exists?)
     end
 
     # @return [Result, nil] the deploy status of the issue (nil: disabled, not visible or no changesets)

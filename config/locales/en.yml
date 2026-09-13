@@ -20,7 +20,12 @@ en:
   permission_manage_deployment_settings: Manage deployment pipeline
   label_deployment_code: Code
   label_deployment_indicator: Deploy indicator
-  label_deployment_badge: Deploy badge
+  label_deployment_badge: Deployment
+  label_deployment_issue_tab: Deployment
+  label_deployment_pipeline_show: "Show the deployment pipeline"
+  text_deployment_step_code: "commits of the issue"
+  text_deployment_step_branch: "merged into %{branch}"
+  text_deployment_step_deployment: "deployed to %{environment}"
   label_deployment_partial: "%{environment}, newer commits pending"
   label_deployment_commits:
     one: "1 commit"
@@ -28,6 +33,8 @@ en:
   label_deployment_live_since: "Live since %{time}"
   label_deployment_environments: Deployment pipeline
   label_deployment_environments_custom: Own deployment pipeline
+  label_deployment_issue_indicator: Show the indicator
+  text_deployment_issue_indicator: "Show the indicator on the issue page"
   text_deployment_environments_custom: "The project defines its own deployment pipeline. Unchecked: the central deployment pipeline (Administration » Plugins » Redmine Deployment plugin)."
   text_deployment_environments_central: "The central deployment pipeline - used by all projects without an own deployment pipeline (project settings, tab 'Deployment')."
   text_deployment_environments: "The steps in the order of the table: 'Code' (the commits of the issue) is always the first step - only its label and color can be changed. The other steps are sortable by drag & drop at the handle. Type 'Branch': reached, if the commits are merged into the branch (value, e.g. develop) of the repository. Type 'Deployment': reached by a successful deployment of the environment (value, e.g. production). The label is optional (default: the value)."

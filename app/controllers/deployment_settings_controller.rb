@@ -9,7 +9,8 @@ class DeploymentSettingsController < ApplicationController
   # settings ('projects', see DeploymentSetting)
   def update
     attributes = params[:deployment_setting] || {}
-    values     = { 'custom' => attributes[:custom].to_s == '1' ? '1' : '0' }
+    values     = { 'custom' => attributes[:custom].to_s == '1' ? '1' : '0',
+                   'issue_indicator' => attributes[:issue_indicator].to_s == '1' ? '1' : '0' }
     # the table is only submitted with an own pipeline - the stored one is kept otherwise
     values['environments'] = attributes[:environments].to_s if attributes.key?(:environments)
 

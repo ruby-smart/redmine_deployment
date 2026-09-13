@@ -3,7 +3,8 @@
 # The settings of the plugin (Setting.plugin_redmine_deployment) - like ContactsSetting of redmine_contacts:
 #
 #   'environments' => the central deployment pipeline (text, see RedmineDeployment::Environments)
-#   'projects'     => { <project id> => { 'custom' => '1', 'environments' => <the project's own pipeline> } }
+#   'projects'     => { <project id> => { 'custom' => '1', 'environments' => <the project's own pipeline>,
+#                       'issue_indicator' => '1' (the issue page shows the deploy indicator) } }
 #
 # A project uses its own pipeline, if 'custom' is '1' - otherwise the central one.
 class DeploymentSetting
@@ -54,6 +55,12 @@ class DeploymentSetting
     # true, if the project uses its own deployment pipeline
     def custom?(project)
       self['custom', project].to_s == '1'
+    end
+
+    # true, if the issue page of the project shows the deploy indicator (project settings, tab "Deployment") - it is
+    # off until a project asks for it
+    def issue_indicator?(project)
+      self['issue_indicator', project].to_s == '1'
     end
 
     private

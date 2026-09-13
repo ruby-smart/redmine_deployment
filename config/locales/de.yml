@@ -20,7 +20,12 @@ de:
   permission_manage_deployment_settings: Deployment-Pipeline verwalten
   label_deployment_code: Code
   label_deployment_indicator: Deploy-Indikator
-  label_deployment_badge: Deploy-Badge
+  label_deployment_badge: Deployment
+  label_deployment_issue_tab: Deployment
+  label_deployment_pipeline_show: "Deployment-Pipeline anzeigen"
+  text_deployment_step_code: "Commits am Ticket"
+  text_deployment_step_branch: "in %{branch} gemergt"
+  text_deployment_step_deployment: "auf %{environment} deployed"
   label_deployment_partial: "%{environment}, neuere Commits offen"
   label_deployment_commits:
     one: "1 Commit"
@@ -28,6 +33,8 @@ de:
   label_deployment_live_since: "Live seit %{time}"
   label_deployment_environments: Deployment-Pipeline
   label_deployment_environments_custom: Eigene Deployment-Pipeline
+  label_deployment_issue_indicator: Indikator anzeigen
+  text_deployment_issue_indicator: "Indikator in Ticket-Detail-Seite anzeigen"
   text_deployment_environments_custom: "Das Projekt definiert eine eigene Deployment-Pipeline. Ohne Haken gilt die zentrale Deployment-Pipeline (Administration » Plugins » Redmine Deployment plugin)."
   text_deployment_environments_central: "Die zentrale Deployment-Pipeline - sie gilt für alle Projekte ohne eigene Deployment-Pipeline (Projekt-Einstellungen, Tab 'Deployment')."
   text_deployment_environments: "Die Stufen in der Reihenfolge der Tabelle: 'Code' (die Commits des Tickets) ist immer die erste Stufe - nur Bezeichnung und Farbe sind änderbar. Die weiteren Stufen sind per Drag & Drop am Griff sortierbar. Typ 'Branch': erreicht, wenn die Commits in den Branch (Wert, z. B. develop) des Repositorys gemergt sind. Typ 'Deployment': erreicht durch ein erfolgreiches Deployment der Umgebung (Wert, z. B. production). Die Bezeichnung ist optional (Standard: der Wert)."

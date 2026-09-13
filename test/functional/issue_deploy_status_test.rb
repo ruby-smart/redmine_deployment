@@ -16,6 +16,8 @@ class IssueDeployStatusTest < Redmine::ControllerTest
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment')
     Role.find(1).add_permission!(:view_deployments)
+    # the issue page carries the indicator only for a project that asks for it (project settings, tab "Deployment")
+    DeploymentSetting.update_project(@project, 'issue_indicator' => '1')
     @request.session[:user_id] = 2 # jsmith, manager of project 1
 
     @repository = Repository::Git.create!(project: @project, identifier: 'deploy', url: '/tmp/deploy.git')
@@ -37,14 +39,40 @@ class IssueDeployStatusTest < Redmine::ControllerTest
     assert_select 'div.issue div.subject h3', text: Issue.find(1).subject
     # in front of the subject (floats right), inside the details box
     assert_select 'div.issue div.subject span.deploy-issue-status + h3'
-    assert_select 'div.issue div.subject .deploy-issue-status .deploy-pipe' do |pipe|
-      # the indicator and the badge next to it
-      assert_select '> .deploy-seg + .deploy-badge.deploy-badge-reached[style=?]', '--e: #7657b8', text: 'Staging'
-      assert_equal %w[on on off], css_select(pipe.first, '.deploy-seg i').map { |segment| segment['class'] }
-      assert_equal ['--e: #66707a', '--e: #7657b8', '--e: #2f9e44'], css_select(pipe.first, '.deploy-seg i').map { |segment| segment['style'] }
-      assert_select '.deploy-badge', text: 'Staging'
-      assert_match(/Staging: 1\/1/, css_select(pipe.first, '.deploy-badge').first['title'])
+    # nothing of it carries a tooltip any more - the popup is what says it
+    assert_select '.deploy-issue-status [title]', 0
+    assert_select 'div.issue div.subject .deploy-issue-status button.deploy-status-toggle[aria-expanded=?][aria-label]', 'false' do
+      assert_select '.deploy-pipe' do |pipe|
+        # the indicator and the badge next to it
+        assert_select '> .deploy-seg + .deploy-badge.deploy-badge-reached[style=?]', '--e: #7657b8', text: 'Staging'
+        assert_equal %w[on on off], css_select(pipe.first, '.deploy-seg i').map { |segment| segment['class'] }
+        assert_equal ['--e: #66707a', '--e: #7657b8', '--e: #2f9e44'], css_select(pipe.first, '.deploy-seg i').map { |segment| segment['style'] }
+        # the popup says everything - neither the indicator nor the badge carries a tooltip any more
+        assert_select '.deploy-seg[title]', 0
+        assert_select '.deploy-badge[title]', 0
+      end
     end
+  end
+
+  # a click on the indicator opens the whole pipeline (deployment_status.js) - it is loaded from this URL, not carried
+  # by the page
+  def test_show_points_to_the_pipeline_of_the_issue
+    get :show, params: { id: 1 }
+
+    assert_response :success
+    assert_select '.deploy-issue-status button.deploy-status-toggle[data-url=?]', '/issues/1/deployment_pipeline'
+    assert_select '.deploy-issue-status .deploy-popup', 0
+    assert_select '.deploy-steps', 0
+  end
+
+  # without the flag of the project the issue page carries nothing of it - the taskboard and the issue list still do
+  def test_show_without_the_indicator_of_the_project
+    DeploymentSetting.update_project(@project, 'issue_indicator' => '0')
+
+    get :show, params: { id: 1 }
+
+    assert_response :success
+    assert_select '.deploy-issue-status', 0
   end
 
   def test_show_without_the_module_deployment
@@ -82,8 +110,8 @@ class IssueDeployStatusTest < Redmine::ControllerTest
       # the step "Code" in its color, then the environments
       assert_equal ['--e: #c93c3c', '--e: #1c8a8a'], css_select(pipe.first, '.deploy-seg i').map { |segment| segment['style'] }
       assert_select '.deploy-badge', text: 'Stage'
-      assert_match(/^Git: 1 commit$/, css_select(pipe.first, '.deploy-seg').first['title'])
     end
+    assert_select '.deploy-issue-status button.deploy-status-toggle[data-url]'
   end
 
   def test_show_only_code_with_its_label
