@@ -17,7 +17,8 @@ en:
   label_deployment_changesets_dag_unavailable: The commit history for this repository is not available, so the related changesets cannot be determined.
   label_deployment_changesets_no_repository: No repository is associated with this deployment.
   label_deployment_repository_deleted: "- Repository deleted -"
-  permission_manage_deployment_settings: Manage deployment pipeline
+  permission_manage_deployment_settings: Edit deployment settings
+  permission_view_deployment_indicator: View indicator / badge
   label_deployment_code: Code
   label_deployment_indicator: Deploy indicator
   label_deployment_badge: Deployment

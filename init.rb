@@ -19,6 +19,12 @@ Redmine::Plugin.register :redmine_deployment do
       :deployment_status => [:show],
     }, :read => true, caption: :label_view_deployments
 
+    # the deploy status of issues: the indicator right of the subject of the issue page and the issue query columns
+    # "Deploy indicator" / "Deployment" - with the popup of the pipeline they open (not the SCRUM taskboard)
+    permission :view_deployment_indicator, {
+      :deployment_status => [:show],
+    }, :read => true
+
     permission :create_deployments, {
       :deployments => [:create], caption: :label_create_deployments
     }

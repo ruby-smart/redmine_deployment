@@ -65,15 +65,22 @@ module RedmineDeployment
     # a commit is expected to be deployed after it was committed - tolerance for clock skews
     COMMIT_TOLERANCE = 1.day
 
-    attr_reader :issues, :user
+    # the permission, that shows the deploy status on the issue page and in the issue query columns
+    INDICATOR_PERMISSION = :view_deployment_indicator
+
+    attr_reader :issues, :user, :permission
 
     # @param [Array<Issue>] issues
-    # @param [User] user - only issues of projects with the permission +view_deployments+ get a status
+    # @param [User] user - only issues of projects with the permission get a status
+    # @param [Symbol, Array<Symbol>] permission - the permission the user needs in the project of an issue (one of them:
+    #   any); +view_deployments+ by default (e.g. the SCRUM taskboard), +view_deployment_indicator+ for the issue page
+    #   and the issue query columns (INDICATOR_PERMISSION)
     # @param [Array<Environments::Environment>, nil] environments - the environments of all projects (default: the
     #   environments of each project, see Environments.for)
-    def initialize(issues, user: User.current, environments: nil)
+    def initialize(issues, user: User.current, permission: :view_deployments, environments: nil)
       @issues       = issues.to_a
       @user         = user
+      @permission   = permission
       @environments = environments&.to_a
     end
 
@@ -91,7 +98,7 @@ module RedmineDeployment
       (@project_codes ||= {})[project.id] ||= Environments.code_for(project)
     end
 
-    # True, if deploy statuses are shown at all: the user may see the deployments of a project with environments and
+    # True, if deploy statuses are shown at all: the user may see the deploy status of a project with environments and
     # there are branch environments or successful deployments. A failed deployment is none - nothing of it counts
     # towards the pipeline (see +covering_deployments+).
     def enabled?
@@ -114,10 +121,10 @@ module RedmineDeployment
 
     private
 
-    # the projects of the issues, whose deployments are visible to the user and that have environments
+    # the projects of the issues, whose deploy status is visible to the user (the permission) and that have environments
     def projects
       @projects ||= issues.map(&:project).uniq.select do |project|
-        user.allowed_to?(:view_deployments, project) && environments_for(project).any?
+        Array(permission).any? { |name| user.allowed_to?(name, project) } && environments_for(project).any?
       end
     end
 

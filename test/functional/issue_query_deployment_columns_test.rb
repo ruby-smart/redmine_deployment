@@ -17,7 +17,7 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
     Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging | purple\ndeployment | production | Live" }
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment')
-    Role.find(1).add_permission!(:view_deployments)
+    Role.find(1).add_permission!(:view_deployment_indicator)
     @request.session[:user_id] = 2 # jsmith, manager of project 1
 
     @repository = Repository::Git.create!(project: @project, identifier: 'deploy', url: '/tmp/deploy.git')
@@ -52,7 +52,8 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
   end
 
   def test_index_should_load_the_deploy_statuses_at_once
-    deploy = RedmineDeployment::DeployStatus.new(Issue.where(project_id: [1, 3, 5]).to_a, user: User.find(2))
+    deploy = RedmineDeployment::DeployStatus.new(Issue.where(project_id: [1, 3, 5]).to_a, user: User.find(2),
+                                                 permission: :view_deployment_indicator)
     RedmineDeployment::DeployStatus.expects(:new).once.returns(deploy)
 
     get :index, params: { project_id: 'ecookbook', set_filter: 1, c: COLUMNS }
@@ -80,7 +81,8 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
     @project.enabled_modules.where(name: 'deployment').delete_all
     assert_not_includes names.call(IssueQuery.new(project: @project.reload)), :deployment_badge
 
-    Role.find(1).remove_permission!(:view_deployments)
+    Role.find(1).remove_permission!(:view_deployment_indicator)
+    Role.find(1).add_permission!(:view_deployments) # viewing the deployments is not enough
     User.current = User.find(2) # the roles of a user are memoized
     assert_not_includes names.call(IssueQuery.new), :deployment_indicator
   ensure

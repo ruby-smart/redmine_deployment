@@ -10,12 +10,12 @@ module RedmineDeployment
 
       module ClassMethods
         # Loads the deploy status of the issues at once (RedmineDeployment::DeployStatus - no N+1), e.g. for the
-        # deploy columns of an issue query (see IssueQueryPatch).
+        # deploy columns of an issue query (see IssueQueryPatch) - with the permission +view_deployment_indicator+.
         def load_deployment_statuses(issues, user = User.current)
           issues = issues.to_a
           return if issues.empty?
 
-          deploy = RedmineDeployment::DeployStatus.new(issues, user: user)
+          deploy = RedmineDeployment::DeployStatus.new(issues, user: user, permission: RedmineDeployment::DeployStatus::INDICATOR_PERMISSION)
           issues.each { |issue| issue.deployment_status = deploy.enabled? ? deploy[issue] : nil }
         end
       end
@@ -26,7 +26,7 @@ module RedmineDeployment
         def deployment_status
           return @deployment_status if defined?(@deployment_status)
 
-          deploy = RedmineDeployment::DeployStatus.new([self])
+          deploy = RedmineDeployment::DeployStatus.new([self], permission: RedmineDeployment::DeployStatus::INDICATOR_PERMISSION)
           @deployment_status = deploy.enabled? ? deploy[self] : nil
         end
 

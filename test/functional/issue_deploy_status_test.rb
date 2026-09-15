@@ -15,7 +15,7 @@ class IssueDeployStatusTest < Redmine::ControllerTest
     Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging | purple\ndeployment | production | Live" }
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment')
-    Role.find(1).add_permission!(:view_deployments)
+    Role.find(1).add_permission!(:view_deployment_indicator)
     # the issue page carries the indicator only for a project that asks for it (project settings, tab "Deployment")
     DeploymentSetting.update_project(@project, 'issue_indicator' => '1')
     @request.session[:user_id] = 2 # jsmith, manager of project 1
@@ -93,7 +93,18 @@ class IssueDeployStatusTest < Redmine::ControllerTest
   end
 
   def test_show_without_the_permission
-    Role.find(1).remove_permission!(:view_deployments)
+    Role.find(1).remove_permission!(:view_deployment_indicator)
+
+    get :show, params: { id: 1 }
+
+    assert_response :success
+    assert_select '.deploy-issue-status', 0
+  end
+
+  # the indicator has its own permission - viewing the deployments does not show it
+  def test_show_with_the_permission_to_view_deployments_only
+    Role.find(1).remove_permission!(:view_deployment_indicator)
+    Role.find(1).add_permission!(:view_deployments)
 
     get :show, params: { id: 1 }
 

@@ -62,6 +62,17 @@ class DeploymentStatusControllerTest < Redmine::ControllerTest
     assert_response :forbidden
   end
 
+  # the indicator of the issue page and the issue list opens the popup as well
+  def test_show_with_the_permission_to_view_the_indicator
+    Role.find(1).remove_permission!(:view_deployments)
+    Role.find(1).add_permission!(:view_deployment_indicator)
+
+    get :show, params: { id: @issue.id }, xhr: true
+
+    assert_response :success
+    assert_select 'span.deploy-badge.deploy-badge-reached', text: 'Staging'
+  end
+
   def test_show_of_an_issue_without_a_deploy_status
     get :show, params: { id: 2 }, xhr: true # no changesets
 

@@ -327,6 +327,24 @@ deployment | production | Live" }
     assert_not status_for(Issue.find(1)).enabled?
   end
 
+  # the issue page and the issue query columns ask for the permission of the indicator (not the taskboard)
+  def test_the_permission_to_view_the_indicator
+    link(Issue.find(1), @c2)
+    deploy('production', from: @c1, to: @c3)
+    indicator = ->(permission) { DeployStatus.new([Issue.find(1)], user: @user, permission: permission, environments: @environments) }
+
+    assert_not indicator.call(:view_deployment_indicator).enabled?
+    assert indicator.call([:view_deployments, :view_deployment_indicator]).enabled?
+
+    Role.find(1).add_permission!(:view_deployment_indicator)
+    Role.find(1).remove_permission!(:view_deployments)
+    @user.reload # the roles of a user are memoized
+
+    assert indicator.call(:view_deployment_indicator).enabled?
+    assert indicator.call([:view_deployments, :view_deployment_indicator]).enabled?
+    assert_not status_for(Issue.find(1)).enabled?
+  end
+
   def test_disabled_without_deployments
     link(Issue.find(1), @c2)
 

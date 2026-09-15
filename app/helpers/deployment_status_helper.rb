@@ -63,7 +63,8 @@ module DeploymentStatusHelper
   end
 
   # The deploy pipeline of an issue on its page (right of the subject) - only for projects with the module
-  # "deployment", if the user may view its deployments, the project has environments and the issue has changesets.
+  # "deployment", if the user has the permission +view_deployment_indicator+ (not +view_deployments+), the project has
+  # environments and the issue has changesets.
   #
   # A click on it opens the whole pipeline as a popup (deployment_status.js), which says everything the tooltip of the
   # indicator used to - so it carries none here.
@@ -72,7 +73,7 @@ module DeploymentStatusHelper
     # the project decides whether its issue pages carry it (project settings, tab "Deployment")
     return ''.html_safe unless DeploymentSetting.issue_indicator?(issue.project)
 
-    deploy = RedmineDeployment::DeployStatus.new([issue])
+    deploy = RedmineDeployment::DeployStatus.new([issue], permission: RedmineDeployment::DeployStatus::INDICATOR_PERMISSION)
     status = deploy[issue] if deploy.enabled?
     return ''.html_safe unless status
 

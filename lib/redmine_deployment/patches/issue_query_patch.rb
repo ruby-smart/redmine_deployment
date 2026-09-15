@@ -3,7 +3,7 @@
 module RedmineDeployment
   module Patches
     # Issue queries: the columns "deploy indicator" and "deploy badge" (the deploy status of the issues, see
-    # DeploymentStatusHelper) - available with the module "deployment" and the permission +view_deployments+. The
+    # DeploymentStatusHelper) - available with the module "deployment" and the permission +view_deployment_indicator+. The
     # deploy statuses of the listed issues are loaded at once (like the spent hours of Redmine).
     module IssueQueryPatch
       DEPLOYMENT_COLUMNS = [:deployment_indicator, :deployment_badge].freeze
@@ -42,9 +42,10 @@ module RedmineDeployment
 
         def deployment_columns_available?
           if project
-            project.module_enabled?(:deployment) && User.current.allowed_to?(:view_deployments, project)
+            project.module_enabled?(:deployment) &&
+              User.current.allowed_to?(RedmineDeployment::DeployStatus::INDICATOR_PERMISSION, project)
           else
-            User.current.allowed_to?(:view_deployments, nil, :global => true)
+            User.current.allowed_to?(RedmineDeployment::DeployStatus::INDICATOR_PERMISSION, nil, :global => true)
           end
         end
       end

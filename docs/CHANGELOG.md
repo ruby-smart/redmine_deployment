@@ -1,6 +1,8 @@
 # redmine deployment - CHANGELOG
 
 ## unreleased
+* **[add]** permission **"Indikator / Badge ansehen"** _(`view_deployment_indicator`)_ - the deploy status on the issue page _(right of the subject)_ and the issue query columns "Deploy-Indikator" / "Deployment" need it instead of `view_deployments`; it opens the pipeline popup as well _(`DeploymentStatusController#show` takes either permission)_. The SCRUM taskboard keeps asking for `view_deployments` _(`DeployStatus.new(issues, permission: ...)`, default `:view_deployments`)_
+* **[ref]** the permission `manage_deployment_settings` is named **"Deployment Einstellungen anpassen"** _(en: "Edit deployment settings")_ instead of "Deployment-Pipeline verwalten"
 * **[add]** project setting **"Indikator anzeigen"** _(project settings, tab "Deployment": "Indikator in Ticket-Detail-Seite anzeigen")_ - the deploy status right of the subject of an issue is only shown for a project that asks for it. **It is off until then**, also for projects that showed it before; the taskboard, the issue list columns and the pipeline popup are untouched by it
 * **[add]** the popup of the deploy status carries a headline: **"Deployment-Pipeline - #42"** - it says which issue it belongs to, which the popup of a board card or an issue list does not say by itself
 * **[fix]** a **failed deployment counts for nothing** in the deploy status - not even its existence: a project whose deployments all failed showed the indicator and the badge of an empty pipeline _(only the coverage of the steps was filtered, `DeployStatus#enabled?` was not)_. The list of deployments of an issue keeps showing the failed ones - that is its history, not its pipeline

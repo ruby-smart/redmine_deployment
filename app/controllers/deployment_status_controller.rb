@@ -5,10 +5,14 @@
 # here. It is deliberately not part of those pages: a board with 70 cards would carry it 70 times over, and it is
 # only ever needed for the one card that is asked about.
 class DeploymentStatusController < ApplicationController
+  # the permissions, whose deploy status opens the popup (see init.rb - both of them allow the action)
+  POPUP_PERMISSIONS = [:view_deployments, RedmineDeployment::DeployStatus::INDICATOR_PERMISSION].freeze
+
   before_action :find_issue, :authorize
 
   def show
-    deploy = RedmineDeployment::DeployStatus.new([@issue])
+    # the indicator of the issue page and the issue list opens it as well as the SCRUM taskboard
+    deploy = RedmineDeployment::DeployStatus.new([@issue], permission: POPUP_PERMISSIONS)
     status = deploy[@issue] if deploy.enabled?
     return render plain: '', status: :no_content unless status
 
