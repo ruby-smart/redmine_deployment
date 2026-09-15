@@ -9,6 +9,7 @@ tr.deployment-fail{
 a.branch span.badge{
     border: 1px solid #ccc;
     color: coral;
+    bottom: 0;
 }
 
 a.branch:hover{
@@ -21,6 +22,11 @@ a.branch:hover span.badge{
 }
 
 .branches{
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tab-content .branches{
     margin-bottom: 20px;
 }
 
