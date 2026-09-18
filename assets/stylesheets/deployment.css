@@ -6,6 +6,12 @@ tr.deployment-fail{
     background: #fff2f2 !important;
 }
 
+.branches{
+    display: flex;
+    gap: 0.2rem;
+    flex-wrap: wrap;
+}
+
 a.branch span.badge{
     border: 1px solid #ccc;
     color: coral;
@@ -19,11 +25,6 @@ a.branch:hover{
 a.branch:hover span.badge{
     background: coral;
     color: #ccc;
-}
-
-.branches{
-    display: flex;
-    gap: 0.5rem;
 }
 
 .tab-content .branches{
