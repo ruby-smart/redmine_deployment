@@ -151,9 +151,11 @@ module DeploymentStatusHelper
   end
 
   # What it takes to reach an environment - derived from its type and its value ("branch:develop" is merged into the
-  # branch "develop", "deployment:staging" is deployed to the environment "staging").
+  # branch "develop", "deployment:staging" is deployed to the environment "staging") - a dynamic value resolved for the
+  # issue (e.g. "feature/42-*" for "feature/{%issue.id%}-*").
   def deployment_step_hint(environment)
     type, value = environment.key.to_s.split(':', 2)
+    value = environment.target if environment.respond_to?(:target) && environment.target.present?
 
     case type
     when RedmineDeployment::Environments::CODE_TYPE then l(:text_deployment_step_code)

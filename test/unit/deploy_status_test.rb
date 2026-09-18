@@ -271,6 +271,67 @@ class DeployStatusTest < ActiveSupport::TestCase
     assert_equal %i[none reached], status[Issue.find(2)].environments.map(&:state)
   end
 
+  def test_branch_wildcard
+    use_environments(%w[branch feature/* Feature], %w[branch main Main])
+    side = commit('side', [@c2], 5.days.ago)
+    branches('feature/a' => @c3, 'feature/b' => side, 'main' => @c2)
+    link(Issue.find(1), @c3, side)
+    link(Issue.find(2), @c4)
+
+    status = status_for(Issue.find(1), Issue.find(2))
+
+    # merged into any feature branch
+    assert_equal %i[reached none], status[Issue.find(1)].environments.map(&:state)
+    assert_equal 'feature/*', status[Issue.find(1)].environments.first.target
+    assert_equal %i[none none], status[Issue.find(2)].environments.map(&:state)
+  end
+
+  def test_branch_placeholders
+    use_environments(['branch', 'feature/{%issue.id%}-*', 'Feature'], ['branch', '{%tracker.name%}/*', 'Tracker'])
+    branches('feature/1-login' => @c3, 'feature/2-logout' => @c5, 'bug/x' => @c2)
+    link(Issue.find(1), @c3) # Bug
+    link(Issue.find(2), @c4) # Feature request
+
+    status = status_for(Issue.find(1), Issue.find(2))
+
+    # issue 1: its own feature branch, the branches of its tracker (case-insensitive) don't have c3
+    assert_equal %i[reached none], status[Issue.find(1)].environments.map(&:state)
+    assert_equal ['feature/1-*', 'Bug/*'], status[Issue.find(1)].environments.map(&:target)
+    # issue 2: c4 is part of feature/2-logout only
+    assert_equal %i[reached none], status[Issue.find(2)].environments.map(&:state)
+    assert_equal 'feature/2-*', status[Issue.find(2)].environments.first.target
+  end
+
+  def test_deployment_wildcards_and_placeholders
+    use_environments(['deployment', 'review-{%issue.id%}', 'Review'], ['deployment', 'prod-*', 'Live'])
+    deploy('review-1', from: @c1, to: @c3)
+    deploy('review-2', from: @c1, to: @c5)
+    deploy('prod-eu', from: nil, to: @c3)
+    deploy('production', from: nil, to: @c5) # does not match prod-*
+    link(Issue.find(1), @c3)
+    link(Issue.find(2), @c4)
+
+    status = status_for(Issue.find(1), Issue.find(2))
+
+    assert_equal %i[reached reached], status[Issue.find(1)].environments.map(&:state)
+    assert status[Issue.find(1)].live_since
+    assert_equal %i[reached none], status[Issue.find(2)].environments.map(&:state)
+    assert_equal ['review-2', 'prod-*'], status[Issue.find(2)].environments.map(&:target)
+  end
+
+  def test_unresolvable_placeholder_is_not_reached
+    use_environments(['branch', 'review/{%assigned_to.login%}', 'Review'])
+    branches('review/jsmith' => @c5)
+    issue = Issue.find(1)
+    issue.update_columns(assigned_to_id: nil)
+    link(issue, @c3)
+
+    result = status_for(issue.reload)[issue]
+
+    assert_equal %i[none], result.environments.map(&:state)
+    assert_equal 'review/{%assigned_to.login%}', result.environments.first.target
+  end
+
   def test_disabled_without_environments
     link(Issue.find(1), @c2)
     deploy('production', from: @c1, to: @c3)

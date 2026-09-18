@@ -38,7 +38,7 @@ en:
   text_deployment_issue_indicator: "Show the indicator on the issue page"
   text_deployment_environments_custom: "The project defines its own deployment pipeline. Unchecked: the central deployment pipeline (Administration » Plugins » Redmine Deployment plugin)."
   text_deployment_environments_central: "The central deployment pipeline - used by all projects without an own deployment pipeline (project settings, tab 'Deployment')."
-  text_deployment_environments: "The steps in the order of the table: 'Code' (the commits of the issue) is always the first step - only its label and color can be changed. The other steps are sortable by drag & drop at the handle. Type 'Branch': reached, if the commits are merged into the branch (value, e.g. develop) of the repository. Type 'Deployment': reached by a successful deployment of the environment (value, e.g. production). The label is optional (default: the value)."
+  text_deployment_environments: "The steps in the order of the table: 'Code' (the commits of the issue) is always the first step - only its label and color can be changed. The other steps are sortable by drag & drop at the handle. Type 'Branch': reached, if the commits are merged into the branch (value, e.g. develop) of the repository. Type 'Deployment': reached by a successful deployment of the environment (value, e.g. production). The label is optional (default: the value). Dynamic values: '*' matches any characters (e.g. feature/*), placeholders insert issue attributes (e.g. feature/{%issue.id%}-* or review-{%tracker.name%}) - objects: issue, tracker, project, status, priority, category, version, author, assigned_to; attributes: the fields of the object (e.g. id, name, subject). Dynamic values are compared case-insensitively; a placeholder without a value makes the step unreachable."
   text_deployment_environments_invalid: "Invalid entries in row %{lines}: the value is required, value and label must not contain '|'."
   text_deployment_environments_empty: No steps after 'Code' - the deploy status is hidden.
   label_deployment_environment_type: Type
@@ -49,7 +49,7 @@ en:
   label_deployment_environment_type_branch: Branch
   label_deployment_environment_type_deployment: Deployment
   label_deployment_environment_type_code: Code
-  text_deployment_environment_value: branch or environment
+  text_deployment_environment_value: "branch or environment (*, {%issue.id%})"
   results:
     success: success
     fail: fail

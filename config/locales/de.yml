@@ -38,7 +38,7 @@ de:
   text_deployment_issue_indicator: "Indikator in Ticket-Detail-Seite anzeigen"
   text_deployment_environments_custom: "Das Projekt definiert eine eigene Deployment-Pipeline. Ohne Haken gilt die zentrale Deployment-Pipeline (Administration » Plugins » Redmine Deployment plugin)."
   text_deployment_environments_central: "Die zentrale Deployment-Pipeline - sie gilt für alle Projekte ohne eigene Deployment-Pipeline (Projekt-Einstellungen, Tab 'Deployment')."
-  text_deployment_environments: "Die Stufen in der Reihenfolge der Tabelle: 'Code' (die Commits des Tickets) ist immer die erste Stufe - nur Bezeichnung und Farbe sind änderbar. Die weiteren Stufen sind per Drag & Drop am Griff sortierbar. Typ 'Branch': erreicht, wenn die Commits in den Branch (Wert, z. B. develop) des Repositorys gemergt sind. Typ 'Deployment': erreicht durch ein erfolgreiches Deployment der Umgebung (Wert, z. B. production). Die Bezeichnung ist optional (Standard: der Wert)."
+  text_deployment_environments: "Die Stufen in der Reihenfolge der Tabelle: 'Code' (die Commits des Tickets) ist immer die erste Stufe - nur Bezeichnung und Farbe sind änderbar. Die weiteren Stufen sind per Drag & Drop am Griff sortierbar. Typ 'Branch': erreicht, wenn die Commits in den Branch (Wert, z. B. develop) des Repositorys gemergt sind. Typ 'Deployment': erreicht durch ein erfolgreiches Deployment der Umgebung (Wert, z. B. production). Die Bezeichnung ist optional (Standard: der Wert). Dynamische Werte: '*' steht für beliebige Zeichen (z. B. feature/*), Platzhalter setzen Ticket-Attribute ein (z. B. feature/{%issue.id%}-* oder review-{%tracker.name%}) - Objekte: issue, tracker, project, status, priority, category, version, author, assigned_to; Attribute: die Felder des Objekts (z. B. id, name, subject). Dynamische Werte vergleichen ohne Groß-/Kleinschreibung; hat ein Platzhalter keinen Wert, ist die Stufe nicht erreichbar."
   text_deployment_environments_invalid: "Ungültige Einträge in Zeile %{lines}: der Wert ist Pflicht, Wert und Bezeichnung dürfen kein '|' enthalten."
   text_deployment_environments_empty: Keine Stufen nach 'Code' - die Deploy-Anzeige ist ausgeblendet.
   label_deployment_environment_type: Typ
@@ -49,7 +49,7 @@ de:
   label_deployment_environment_type_branch: Branch
   label_deployment_environment_type_deployment: Deployment
   label_deployment_environment_type_code: Code
-  text_deployment_environment_value: Branch bzw. Umgebung
+  text_deployment_environment_value: "Branch bzw. Umgebung (*, {%issue.id%})"
   results:
     success: erfolgreich
     fail: fehlgeschlagen

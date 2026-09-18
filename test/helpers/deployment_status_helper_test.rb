@@ -93,6 +93,21 @@ class DeploymentStatusHelperTest < Redmine::HelperTest
     end
   end
 
+  # a dynamic value: the value resolved for the issue
+  def test_pipeline_details_name_the_resolved_value
+    environments = [Environment.new(key: 'branch:feature/{%issue.id%}-*', label: 'Feature', color: '#2f6db5',
+                                    target: 'feature/42-*', covered: 1, total: 1),
+                    Environment.new(key: 'deployment:review-*', label: 'Review', color: '#2f9e44', target: 'review-*',
+                                    covered: 0, total: 1)]
+    html = deployment_pipeline_details(Status.new(changeset_count: 1, code: Code.new(nil, '#66707a'),
+                                                  environments: environments))
+
+    assert_select_in html, 'div.deploy-steps' do
+      assert_select 'span.deploy-step-hint', text: 'merged into feature/42-*'
+      assert_select 'span.deploy-step-hint', text: 'deployed to review-*'
+    end
+  end
+
   # the headline: the pipeline of exactly this issue - without one (the tests of the steps) it has none
   def test_pipeline_details_name_the_issue
     html = deployment_pipeline_details(status([2, 2, 2]), Issue.find(1))

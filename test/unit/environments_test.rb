@@ -3,7 +3,7 @@
 require File.expand_path('../test_helper', __dir__)
 
 class EnvironmentsTest < ActiveSupport::TestCase
-  fixtures :projects
+  fixtures :projects, :users, :trackers, :issue_statuses, :issues, :issue_categories, :enumerations
 
   Environments = RedmineDeployment::Environments
 
@@ -148,5 +148,88 @@ class EnvironmentsTest < ActiveSupport::TestCase
 
     assert_empty DeploymentSetting.project_settings(2)
     assert_not DeploymentSetting.settings['projects'].to_h.key?(2)
+  end
+
+  def test_dynamic_values
+    assert_match Environments::FORMAT, 'branch | feature/* | Feature'
+    assert_match Environments::FORMAT, 'branch | feature/{%issue.id%}-* | Feature'
+    assert_equal 'feature/*', Environments.parse_line('branch | feature/*').value
+
+    assert_not Environments::Environment.new('branch', 'develop').dynamic?
+    assert Environments::Environment.new('branch', 'feature/*').dynamic?
+    assert Environments::Environment.new('deployment', 'review-{%issue.id%}').placeholders?
+    assert_not Environments::Environment.new('branch', 'feature/*').placeholders?
+  end
+
+  def test_wildcards
+    target = Environments.resolve('feature/*', nil)
+
+    assert_equal 'feature/*', target.text
+    assert target.match?('feature/login')
+    assert target.match?('Feature/Login-2')
+    assert target.match?('feature/')
+    assert_not target.match?('bugfix/feature/login')
+    assert_not target.match?('feature')
+
+    assert Environments.resolve('*-{%issue.id%}-*', Issue.find(1)).match?('feature-1-login')
+    assert Environments.resolve('release/*.x', nil).match?('release/2.x')
+    assert_not Environments.resolve('release/*.x', nil).match?('release/2-x')
+  end
+
+  def test_literal_values_match_exactly
+    target = Environments.resolve('develop', nil)
+
+    assert target.match?('develop')
+    assert_not target.match?('Develop')
+    assert_not target.match?('develop2')
+    assert_not Environments.resolve('release.1', nil).match?('release-1')
+  end
+
+  def test_placeholders
+    issue = Issue.find(1) # Bug, project eCookbook, category 1
+
+    assert_equal 'feature/1-*', Environments.resolve('feature/{%issue.id%}-*', issue).text
+    assert_equal 'Bug/1', Environments.resolve('{%tracker.name%}/{%issue.id%}', issue).text
+    assert_equal 'ecookbook-New', Environments.resolve('{% project.identifier %}-{%status.name%}', issue).text
+    assert_equal 'review-jsmith', Environments.resolve('review-{%author.login%}', issue).text
+
+    target = Environments.resolve('{%tracker.name%}/{%issue.id%}', issue)
+    assert target.match?('Bug/1')
+    assert target.match?('bug/1')
+    assert_not target.match?('bug/12')
+  end
+
+  def test_placeholder_values_are_no_wildcards
+    issue = Issue.find(1)
+    issue.subject = 'a*b'
+
+    target = Environments.resolve('x-{%issue.subject%}', issue)
+
+    assert target.match?('x-a*b')
+    assert_not target.match?('x-aXb')
+  end
+
+  def test_unresolvable_placeholders
+    issue = Issue.find(1)
+    issue.assigned_to = nil
+
+    # no value: the step can't be reached
+    assert_nil Environments.resolve('review-{%assigned_to.login%}', issue)
+    # unknown object or attribute
+    assert_nil Environments.resolve('review-{%foo.id%}', issue)
+    assert_nil Environments.resolve('review-{%tracker.foo%}', issue)
+    # no attributes of users other than the public ones
+    assert_nil Environments.resolve('{%author.hashed_password%}', issue)
+    assert_nil Environments.resolve('{%issue.id%}', nil)
+    # no placeholder syntax: literal text
+    assert_equal '{issue.id}', Environments.resolve('{issue.id}', issue).text
+  end
+
+  def test_placeholder_associations
+    environments = [Environments::Environment.new('branch', '{%tracker.name%}/{%issue.id%}'),
+                    Environments::Environment.new('deployment', '{%version.name%}-{%tracker.id%}'),
+                    Environments::Environment.new('branch', 'main')]
+
+    assert_equal %i[tracker fixed_version], Environments.placeholder_associations(environments)
   end
 end

@@ -89,7 +89,7 @@ class DeploymentPluginSettingsTest < Redmine::ControllerTest
 end
 
 # the project's own deploy environments (project settings, tab "Deployment")
-class DeploymentProjectSettingsTabTest < Redmine::ControllerTest
+class DeploymentSettingsProjectTabTest < Redmine::ControllerTest
   tests ProjectsController
 
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles, :enabled_modules, :trackers,

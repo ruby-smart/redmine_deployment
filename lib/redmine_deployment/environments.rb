@@ -12,6 +12,12 @@ module RedmineDeployment
   # An environment is reached by
   # * branch: merged into a branch of the repository (e.g. "branch | develop | Develop")
   # * deployment: a successful deployment of the environment (e.g. "deployment | production | Live")
+  #
+  # The value can be dynamic (see Environment#target) - it is resolved for each issue:
+  # * wildcard "*": any characters, e.g. "branch | feature/*" (merged into any feature branch)
+  # * placeholders "{%object.attribute%}": an attribute of the issue (PLACEHOLDER_OBJECTS), e.g.
+  #   "branch | feature/{%issue.id%}-*" or "deployment | review-{%tracker.name%}"
+  # Dynamic values match case-insensitively, a placeholder without a value (e.g. no category) never matches.
   module Environments
     DEFAULT_TEXT = "deployment | development | Development\ndeployment | staging | Staging\ndeployment | production | Live"
 
@@ -52,6 +58,35 @@ module RedmineDeployment
     # the former format: "<deployment environment> = <label>"
     LEGACY_FORMAT = /\A\s*([^|=:#\s][^|=:]*?)\s*(?:[=:]\s*([^|]*?))?\s*\z/.freeze
 
+    WILDCARD = '*'
+    # "{%issue.id%}" - object and attribute
+    PLACEHOLDER = /\{%\s*(\w+)\.(\w+)\s*%\}/.freeze
+    # a value split into its placeholders, its wildcards and the literal text between them
+    TOKENS = /(\{%\s*\w+\.\w+\s*%\}|\*)/.freeze
+    # the objects of the placeholders: the association of the issue (nil: the issue itself) - their attributes are
+    # the columns of the record
+    PLACEHOLDER_OBJECTS = {
+      'issue' => nil,
+      'tracker' => :tracker,
+      'project' => :project,
+      'status' => :status,
+      'priority' => :priority,
+      'category' => :category,
+      'version' => :fixed_version,
+      'author' => :author,
+      'assigned_to' => :assigned_to
+    }.freeze
+    # users and groups (author, assigned_to): only these attributes - no password hashes etc.
+    PRINCIPAL_ATTRIBUTES = %w[id login firstname lastname name].freeze
+
+    # the value of an environment resolved for an issue: text (placeholders replaced, e.g. for the pipeline popup) and
+    # the pattern the branch or deployment environment has to match
+    Target = Struct.new(:text, :regexp) do
+      def match?(name)
+        regexp.match?(name.to_s)
+      end
+    end
+
     # the step "Code" - label nil: the default label (translated "Code")
     Code = Struct.new(:label, :color) do
       def type
@@ -70,6 +105,21 @@ module RedmineDeployment
 
       def deployment?
         type == 'deployment'
+      end
+
+      # true, if the value has wildcards or placeholders
+      def dynamic?
+        value.include?(WILDCARD) || placeholders?
+      end
+
+      def placeholders?
+        value.match?(PLACEHOLDER)
+      end
+
+      # @param [Issue] issue
+      # @return [Target, nil] the value resolved for the issue - nil: a placeholder has no value (never reached)
+      def target(issue)
+        Environments.resolve(value, issue)
       end
     end
 
@@ -163,6 +213,55 @@ module RedmineDeployment
       # the color of an environment without a color: by position, the last one is green
       def default_color(index, count)
         COLORS[index == count - 1 ? LAST_COLOR : DEFAULT_COLORS[index % DEFAULT_COLORS.size]]
+      end
+
+      # The value of an environment for an issue: the placeholders replaced by the attributes of the issue, "*" any
+      # characters - literal values match exactly, dynamic ones case-insensitively. The values of the placeholders
+      # are literal text (a "*" in a subject is no wildcard).
+      #
+      # @return [Target, nil] nil: a placeholder is unknown or has no value for the issue
+      def resolve(value, issue)
+        value  = value.to_s
+        text   = +''
+        source = +''
+        value.split(TOKENS).each do |part|
+          if part == WILDCARD
+            text << part
+            source << '.*'
+          else
+            match = PLACEHOLDER.match(part) if part.start_with?('{%')
+            part  = placeholder_value(issue, match[1], match[2]) if match && match[0] == part
+            return if part.nil?
+
+            text << part
+            source << Regexp.escape(part)
+          end
+        end
+
+        dynamic = value.include?(WILDCARD) || value.match?(PLACEHOLDER)
+        Target.new(text, Regexp.new("\\A#{source}\\z", dynamic ? Regexp::IGNORECASE : nil))
+      end
+
+      # @return [String, nil] the attribute of the placeholder object of the issue - nil: unknown object or attribute
+      #   or no value
+      def placeholder_value(issue, object, attribute)
+        return unless issue && PLACEHOLDER_OBJECTS.key?(object)
+
+        association = PLACEHOLDER_OBJECTS[object]
+        record      = association ? issue.public_send(association) : issue
+        value       =
+          if record.is_a?(Principal)
+            record.public_send(attribute) if PRINCIPAL_ATTRIBUTES.include?(attribute)
+          elsif record && record.class.column_names.include?(attribute)
+            record.read_attribute(attribute)
+          end
+        value.to_s.strip.presence
+      end
+
+      # @return [Array<Symbol>] the associations of the issues the placeholders of the environments need (to preload)
+      def placeholder_associations(environments)
+        environments.flat_map { |environment| environment.value.scan(PLACEHOLDER).map { |object, _| PLACEHOLDER_OBJECTS[object] } }.
+          compact.uniq
       end
 
       private

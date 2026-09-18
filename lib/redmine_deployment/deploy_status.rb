@@ -14,13 +14,19 @@ module RedmineDeployment
   # * reached, if all changesets of the issue are part of it
   # * partial, if only some of them are part of it
   #
+  # The value of an environment can be dynamic (wildcards, placeholders of issue attributes - see
+  # Environments::Environment#target), so it is resolved for each issue: a branch environment is reached by the
+  # branches matching it (e.g. "feature/*" - any of them), a deployment environment by the deployments of the matching
+  # environments.
+  #
   # "Live since" is the time, from which on all changesets were deployed to the last environment (unknown, if the
   # last environment is a branch).
   #
   # All issues are resolved at once (a handful of queries per project, no N+1). The commit range of a deployment and
   # the ancestors of a branch head never change, so they are computed once by a recursive SQL query and then cached.
   class DeployStatus
-    Environment = Struct.new(:key, :label, :color, :covered, :total, keyword_init: true) do
+    # target: the value of the environment resolved for the issue (e.g. "feature/42-*" for "feature/{%issue.id%}-*")
+    Environment = Struct.new(:key, :label, :color, :target, :covered, :total, keyword_init: true) do
       def state
         if covered.zero?
           :none
@@ -135,33 +141,60 @@ module RedmineDeployment
       return {} if rows.empty?
 
       repositories = Repository.where(id: rows.map(&:third).uniq).index_by(&:id)
+      issues_by_id = issues.index_by(&:id)
 
       rows.group_by { |row| issue_projects[row.first] }.each_with_object({}) do |(project_id, project_rows), statuses|
         environments = environments_for(projects_by_id[project_id])
-        covering     = covering_deployments(project_rows, repositories, environments).
-          merge(covering_branches(project_rows, repositories, environments))
+        targets      = targets_for(environments, project_rows.map(&:first).uniq.map { |issue_id| issues_by_id[issue_id] })
+        covering     = covering_deployments(project_rows, repositories, environments, targets).
+          merge(covering_branches(project_rows, repositories, environments, targets))
 
         code = code_for(projects_by_id[project_id])
         project_rows.group_by(&:first).each do |issue_id, issue_rows|
-          statuses[issue_id] = result_for(issue_rows.map(&:second).uniq, covering, environments, code)
+          statuses[issue_id] = result_for(issue_id, issue_rows.map(&:second).uniq, covering, environments, targets, code)
         end
       end
     end
 
-    def result_for(changeset_ids, covering, environments, code)
+    # The values of the environments resolved for the issues (the same target for all of them without placeholders).
+    #
+    # @return [Hash{String => Hash{Integer => Environments::Target, nil}}] target by environment key and issue id
+    def targets_for(environments, issues)
+      preload_placeholders(environments, issues)
+
+      environments.to_h do |environment|
+        static = environment.target(nil) unless environment.placeholders?
+        [environment.key, issues.to_h { |issue| [issue.id, environment.placeholders? ? environment.target(issue) : static] }]
+      end
+    end
+
+    # the associations of the placeholders (e.g. {%tracker.name%}) at once - no N+1
+    def preload_placeholders(environments, issues)
+      associations = Environments.placeholder_associations(environments)
+      ActiveRecord::Associations::Preloader.new.preload(issues, associations) if associations.any? && issues.any?
+    end
+
+    def result_for(issue_id, changeset_ids, covering, environments, targets, code)
       states = environments.map do |environment|
-        covered = changeset_ids.count { |changeset_id| covering.dig(environment.key, changeset_id).present? }
-        Environment.new(key: environment.key, label: environment.label, color: environment.color, covered: covered,
-                        total: changeset_ids.size)
+        target  = targets[environment.key][issue_id]
+        covered = target ? changeset_ids.count { |changeset_id| covering.dig([environment.key, target], changeset_id).present? } : 0
+        Environment.new(key: environment.key, label: environment.label, color: environment.color,
+                        target: target&.text || environment.value, covered: covered, total: changeset_ids.size)
       end
 
       result = Result.new(changeset_count: changeset_ids.size, code: code, environments: states)
       last   = environments.last
       if result.live? && last.deployment?
         # all changesets are live, as soon as the last of them was deployed for the first time
-        result.live_since = changeset_ids.map { |changeset_id| covering[last.key][changeset_id].map(&:created_on).min }.max
+        deployed = covering[[last.key, targets[last.key][issue_id]]]
+        result.live_since = changeset_ids.map { |changeset_id| deployed[changeset_id].map(&:created_on).min }.max
       end
       result
+    end
+
+    # @return [Array<Array(String, Environments::Target)>] the distinct targets of the environments: [key, target]
+    def distinct_targets(environments, targets)
+      environments.flat_map { |environment| targets[environment.key].values.compact.uniq.map { |target| [environment.key, target] } }
     end
 
     # @return [Array<Array>] [issue_id, changeset_id, repository_id, committed_on]
@@ -173,19 +206,22 @@ module RedmineDeployment
         pluck(Arel.sql('ci.issue_id'), "#{Changeset.table_name}.id", "#{Changeset.table_name}.repository_id", "#{Changeset.table_name}.committed_on")
     end
 
-    # @return [Hash{String => Hash{Integer => Array<Deployment>}}] successful deployments by environment key and
-    #   changeset id
-    def covering_deployments(rows, repositories, environments)
-      keys = environments.select(&:deployment?).to_h { |environment| [environment.value, environment.key] }
-      return {} if keys.empty?
+    # @return [Hash{Array(String, Environments::Target) => Hash{Integer => Array<Deployment>}}] successful deployments
+    #   by [environment key, target] and changeset id
+    def covering_deployments(rows, repositories, environments, targets)
+      deployment_environments = environments.select(&:deployment?)
+      wanted = distinct_targets(deployment_environments, targets)
+      return {} if wanted.empty?
 
       changeset_ids  = rows.to_set(&:second)
       repository_ids = rows.map(&:third).uniq
       committed_from = rows.map(&:fourth).compact.min
 
       deployments = ::Deployment.
-        where(repository_id: repository_ids, environment: keys.keys, result: ::Deployment::RESULT_SUCCESS).
+        where(repository_id: repository_ids, result: ::Deployment::RESULT_SUCCESS).
         select(:id, :repository_id, :environment, :from_revision, :to_revision, :created_on)
+      # dynamic values are matched in Ruby (wildcards, case-insensitive), literal ones by the database already
+      deployments = deployments.where(environment: wanted.map { |_, target| target.text }.uniq) if deployment_environments.none?(&:dynamic?)
       deployments = deployments.where("#{::Deployment.table_name}.created_on >= ?", committed_from - COMMIT_TOLERANCE) if committed_from
       deployments = deployments.to_a
 
@@ -195,6 +231,9 @@ module RedmineDeployment
       revisions = resolve_revisions(deployments, repositories)
 
       deployments.each do |deployment|
+        matching = wanted.select { |_, target| target.match?(deployment.environment) }
+        next if matching.empty?
+
         repository = repositories[deployment.repository_id]
         next unless repository && dag_available?(repository)
 
@@ -206,35 +245,42 @@ module RedmineDeployment
         ids.each do |changeset_id|
           next unless changeset_ids.include?(changeset_id)
 
-          (covering[keys[deployment.environment]][changeset_id] ||= []) << deployment
+          matching.each { |key| (covering[key][changeset_id] ||= []) << deployment }
         end
       end
 
       covering
     end
 
-    # @return [Hash{String => Hash{Integer => true}}] changesets merged into the branches by environment key and
-    #   changeset id
-    def covering_branches(rows, repositories, environments)
-      branch_environments = environments.select(&:branch?)
-      return {} if branch_environments.empty?
+    # A changeset is merged into a branch environment, if it is merged into any of the branches matching its target
+    # (one branch for a literal value, e.g. all feature branches for "feature/*").
+    #
+    # @return [Hash{Array(String, Environments::Target) => Hash{Integer => true}}] changesets merged into the branches
+    #   by [environment key, target] and changeset id
+    def covering_branches(rows, repositories, environments, targets)
+      wanted = distinct_targets(environments.select(&:branch?), targets)
+      return {} if wanted.empty?
 
       changeset_ids = rows.group_by(&:third).transform_values { |repository_rows| repository_rows.to_set(&:second) }
 
-      branch_environments.to_h do |environment|
+      wanted.to_h do |key, target|
         covered = {}
         changeset_ids.each do |repository_id, repository_changeset_ids|
           repository = repositories[repository_id]
           next unless repository && dag_available?(repository)
 
-          head = branch_head(repository, environment.value)
-          next unless head
-
-          ids = range_ids(head.id, nil) { ::Deployment.new(repository: repository, to_revision: head.revision).changesets.pluck(:id) }
-          ids.each { |changeset_id| covered[changeset_id] = true if repository_changeset_ids.include?(changeset_id) }
+          branch_heads(repository, target).each do |head|
+            ids = range_ids(head.id, nil) { ::Deployment.new(repository: repository, to_revision: head.revision).changesets.pluck(:id) }
+            ids.each { |changeset_id| covered[changeset_id] = true if repository_changeset_ids.include?(changeset_id) }
+          end
         end
-        [environment.key, covered]
+        [[key, target], covered]
       end
+    end
+
+    # @return [Array<Changeset>] the heads of the branches matching the target (fetched into Redmine)
+    def branch_heads(repository, target)
+      branch_revisions(repository).keys.select { |name| target.match?(name) }.filter_map { |name| branch_head(repository, name) }
     end
 
     # @return [Changeset, nil] the head of the branch (nil: unknown branch or head not fetched into Redmine yet)
