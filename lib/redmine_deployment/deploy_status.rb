@@ -322,8 +322,11 @@ module RedmineDeployment
     #
     # @return [Hash{[Integer, String] => Integer}] changeset id by [repository id, revision]
     def resolve_revisions(deployments, repositories)
+      # a missing boundary is skipped here, so it stays unresolved and +covering_deployments+ drops the
+      # deployment - including Git's all-zero null revision, which must never be looked up (see
+      # Deployment.null_revision?: a short "000000" would prefix-match an arbitrary commit)
       wanted = deployments.flat_map { |d| [[d.repository_id, d.from_revision], [d.repository_id, d.to_revision]] }.
-        reject { |_, revision| revision.blank? }.uniq
+        reject { |_, revision| ::Deployment.null_revision?(revision) }.uniq
 
       resolved = Changeset.where(repository_id: wanted.map(&:first).uniq, revision: wanted.map(&:second).uniq).
         pluck(:repository_id, :revision, :id).

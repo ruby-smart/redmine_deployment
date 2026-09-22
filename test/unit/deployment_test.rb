@@ -85,6 +85,46 @@ class DeploymentTest < ActiveSupport::TestCase
     assert_equal :incomplete_range, deployment.changesets_unavailable_reason
   end
 
+  # Git's hooks report "no revision" as an all-zero SHA, and deploy scripts abbreviate it to any
+  # number of zeros. Such a boundary means "unknown", so the deployment has no range.
+  def test_null_revision_predicate
+    ['', nil, '0', '000000', '0' * 40, '  000000  '].each do |value|
+      assert Deployment.null_revision?(value), "#{value.inspect} must count as no revision"
+    end
+    ['0abc1234', '000000abc', @a.revision].each do |value|
+      assert_not Deployment.null_revision?(value), "#{value.inspect} is a real revision"
+    end
+  end
+
+  def test_changesets_with_null_from_revision_is_empty
+    ['000000', '0' * 40].each do |null_revision|
+      deployment = build_deployment(:from_revision => null_revision, :to_revision => @d.revision)
+
+      assert_empty deployment.changesets, "#{null_revision} must not open the range"
+      assert_empty deployment.related_issues
+      assert_equal :incomplete_range, deployment.changesets_unavailable_reason
+    end
+  end
+
+  # Repository::Git#find_changeset_by_name falls back to an "scmid LIKE '<name>%'" prefix match,
+  # so a short "000000" would otherwise resolve to any commit whose id happens to start with
+  # zeros - turning an unknown boundary into an arbitrary range.
+  def test_null_revision_is_not_prefix_matched_against_a_zero_leading_commit
+    zero_leading = create_changeset('000000deadbeef', 2.hours.ago)
+    deployment   = build_deployment(:from_revision => '000000', :to_revision => @d.revision)
+
+    assert_equal zero_leading, @repository.find_changeset_by_name('000000'),
+                 'guard: the repository itself would resolve the placeholder to this commit'
+    assert_empty deployment.changesets
+    assert_equal :incomplete_range, deployment.changesets_unavailable_reason
+  end
+
+  def test_revisions_label_treats_a_null_revision_as_missing
+    assert_equal "? ... #{@d.revision[0..7]}",
+                 build_deployment(:from_revision => '000000', :to_revision => @d.revision).revisions
+    assert_equal '-', build_deployment(:from_revision => '000000', :to_revision => '0' * 40).revisions
+  end
+
   def test_changesets_unavailable_when_to_revision_not_found
     deployment = build_deployment(:from_revision => @a.revision, :to_revision => 'deadbeefdeadbeef')
 

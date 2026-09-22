@@ -33,6 +33,17 @@ class DeploymentRevisionsHelperTest < Redmine::HelperTest
     assert_select_in html, 'a[href=?]', revision_path('bbbbbbbbbbbb')
   end
 
+  def test_link_to_deployment_revisions_treats_a_null_revision_as_missing
+    deployment = build_deployment(:from_revision => '0' * 40, :to_revision => 'bbbbbbbbbbbb')
+
+    html = link_to_deployment_revisions(deployment)
+
+    assert_includes html, '? ... '
+    assert_select_in html, 'a', 1
+    assert_select_in html, 'a[href=?]', revision_path('bbbbbbbbbbbb')
+    assert_not_includes html, '0000'
+  end
+
   def test_link_to_deployment_revisions_falls_back_to_plain_text_without_repository
     deployment = build_deployment(:from_revision => 'aaaaaaaaaaaa', :to_revision => 'bbbbbbbbbbbb')
     deployment.repository = nil

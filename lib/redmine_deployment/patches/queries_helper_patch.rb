@@ -29,7 +29,8 @@ module RedmineDeployment
 
           case column.name
           when :from_revision, :to_revision
-            value.blank? ? "-" : link_to_revision_from_deployment(item, column.name)
+            # an all-zero revision is Git's "no revision" placeholder, not something to link to
+            Deployment.null_revision?(value) ? "-" : link_to_revision_from_deployment(item, column.name)
           when :revisions
             link_to_deployment_revisions(item)
           when :result
@@ -63,16 +64,19 @@ module RedmineDeployment
         # Deployment#revisions but with each revision rendered as a link to the
         # repository revision page (falls back to plain text without a repository).
         def link_to_deployment_revisions(deployment)
-          if deployment.to_revision.present? && deployment.from_revision.present?
+          from = Deployment.null_revision?(deployment.from_revision) ? nil : :from_revision
+          to   = Deployment.null_revision?(deployment.to_revision)   ? nil : :to_revision
+
+          if from && to
             ret = ''.html_safe
-            ret << link_to_revision_from_deployment(deployment, :from_revision)
+            ret << link_to_revision_from_deployment(deployment, from)
             ret << ' ... '
-            ret << link_to_revision_from_deployment(deployment, :to_revision)
+            ret << link_to_revision_from_deployment(deployment, to)
             ret
-          elsif deployment.to_revision.present?
-            "? ... #{link_to_revision_from_deployment(deployment, :to_revision)}".html_safe
-          elsif deployment.from_revision.present?
-            "#{link_to_revision_from_deployment(deployment, :from_revision)} ... ?".html_safe
+          elsif to
+            "? ... #{link_to_revision_from_deployment(deployment, to)}".html_safe
+          elsif from
+            "#{link_to_revision_from_deployment(deployment, from)} ... ?".html_safe
           else
             "-"
           end

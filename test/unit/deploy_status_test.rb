@@ -183,7 +183,21 @@ class DeployStatusTest < ActiveSupport::TestCase
     link(Issue.find(1), @c2, @c3)
     deploy('production', from: nil, to: @c5)
     deploy('production', from: 'unknown', to: @c5)
+    deploy('production', from: '0' * 40, to: @c5)
 
+    assert_equal %i[none none], status_for(Issue.find(1))[Issue.find(1)].environments.map(&:state)
+  end
+
+  # Git's null revision must not be looked up at all: Repository::Git#find_changeset_by_name falls back
+  # to an "scmid LIKE '<name>%'" prefix match, so a short "000000" resolves to any commit whose id starts
+  # with zeros. Such a bogus lower bound prunes nothing, so the range would swallow the whole history.
+  def test_null_from_revision_is_not_prefix_matched_to_a_zero_leading_commit
+    stray = commit('000000stray', [], 12.days.ago) # off to the side, not an ancestor of c5
+    link(Issue.find(1), @c2)
+    deploy('production', from: '000000', to: @c5)
+
+    assert_equal stray, @repository.find_changeset_by_name('000000'),
+                 'guard: the repository itself would resolve the placeholder to this commit'
     assert_equal %i[none none], status_for(Issue.find(1))[Issue.find(1)].environments.map(&:state)
   end
 
