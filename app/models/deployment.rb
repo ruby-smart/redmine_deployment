@@ -26,7 +26,7 @@ class Deployment < ApplicationRecord
     if to_revision.present? && from_revision.present?
       "#{from_revision[0..7]} ... #{to_revision[0..7]}"
     elsif to_revision.present?
-      "000000 ... #{to_revision[0..7]}"
+      "? ... #{to_revision[0..7]}"
     elsif from_revision.present?
       "#{from_revision[0..7]} ... ?"
     else
@@ -44,6 +44,12 @@ class Deployment < ApplicationRecord
   # This mirrors <tt>git log from..to</tt> and, unlike a commit-time window, correctly excludes
   # commits on other branches that were never merged into the deployed revision.
   #
+  # BOTH boundaries are required. A deployment that is missing one of them (a failed or
+  # incompletely reported deployment) has an *undefined* range, not an open-ended one: it
+  # returns no changesets at all. Treating a missing +from_revision+ as "since the root commit"
+  # used to make such a deployment claim the entire repository history - every changeset and
+  # every issue ever referenced - which made the detail page effectively never finish loading.
+  #
   # Returns an ActiveRecord::Relation so callers can chain +preload+/+reorder+/+select+.
   # When the range cannot be computed from the DAG (see +changesets_unavailable_reason+) it
   # returns +Changeset.none+ rather than falling back to an approximate time window.
@@ -57,12 +63,14 @@ class Deployment < ApplicationRecord
   # Explains why +changesets+ is empty for reasons other than "the range genuinely contains
   # no commits", so the view can show a meaningful notice. Returns a symbol or +nil+:
   #   :no_repository       - the deployment has no repository
+  #   :incomplete_range    - +from_revision+ and/or +to_revision+ is blank, so there is no range
   #   :dag_unavailable     - non-git repo, or a git repo whose parent graph was never populated
-  #   :revision_not_found  - +to_revision+ is blank or not fetched into Redmine yet
+  #   :revision_not_found  - a boundary revision has not been fetched into Redmine yet
   def changesets_unavailable_reason
     return :no_repository unless repository
+    return :incomplete_range if from_revision.blank? || to_revision.blank?
     return :dag_unavailable unless dag_available?
-    return :revision_not_found unless resolved_to_changeset
+    return :revision_not_found unless resolved_from_changeset && resolved_to_changeset
 
     nil
   end
@@ -115,9 +123,11 @@ class Deployment < ApplicationRecord
   # exclusive of +from+ and its ancestors). Walks up the parent DAG from +to+, pruning the
   # cone of ancestors of +from+.
   def commit_range_ids(from_changeset, to_changeset)
-    return [] unless to_changeset
+    # Both boundaries required - see +changesets+. Without +from+ the walk below would run all
+    # the way to the root commit and return the whole repository history.
+    return [] unless from_changeset && to_changeset
 
-    excluded = from_changeset ? ancestor_ids([from_changeset.id]) : Set.new
+    excluded = ancestor_ids([from_changeset.id])
     result   = Set.new
     visited  = Set.new([to_changeset.id])
     frontier = [to_changeset.id]

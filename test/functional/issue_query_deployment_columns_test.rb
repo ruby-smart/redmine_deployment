@@ -21,12 +21,16 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
     @request.session[:user_id] = 2 # jsmith, manager of project 1
 
     @repository = Repository::Git.create!(project: @project, identifier: 'deploy', url: '/tmp/deploy.git')
-    @c1 = Changeset.create!(repository: @repository, revision: 'c1', scmid: 'c1', committed_on: 3.days.ago, committer: 'tester')
+    # c0 <- c1 <- c2; c0 is the root commit and only serves as the lower bound of the deployments below
+    # (a deployment covers a range and needs both boundaries, see Deployment#changesets)
+    @c0 = Changeset.create!(repository: @repository, revision: 'c0', scmid: 'c0', committed_on: 4.days.ago, committer: 'tester')
+    @c1 = Changeset.create!(repository: @repository, revision: 'c1', scmid: 'c1', committed_on: 3.days.ago,
+                            committer: 'tester', parents: [@c0])
     @c2 = Changeset.create!(repository: @repository, revision: 'c2', scmid: 'c2', committed_on: 2.days.ago, committer: 'tester', parents: [@c1])
     Issue.find(1).changesets << @c2
     Issue.find(3).changesets << @c1
     Deployment.create!(project: @project, repository: @repository, author: User.find(1), environment: 'staging',
-                       result: Deployment::RESULT_SUCCESS, to_revision: 'c2')
+                       result: Deployment::RESULT_SUCCESS, from_revision: 'c0', to_revision: 'c2')
   end
 
   def teardown

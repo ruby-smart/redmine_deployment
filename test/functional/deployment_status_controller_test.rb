@@ -21,13 +21,17 @@ class DeploymentStatusControllerTest < Redmine::ControllerTest
     Role.find(1).add_permission!(:view_deployments)
 
     @repository = Repository::Git.create!(project: @project, identifier: 'status', url: '/tmp/status.git')
-    @c1 = Changeset.create!(repository: @repository, revision: 'c1', scmid: 'c1', committed_on: 3.days.ago, committer: 'tester')
+    # c0 <- c1 <- c2; c0 is the root commit and only serves as the lower bound of the deployments below
+    # (a deployment covers a range and needs both boundaries, see Deployment#changesets)
+    @c0 = Changeset.create!(repository: @repository, revision: 'c0', scmid: 'c0', committed_on: 4.days.ago, committer: 'tester')
+    @c1 = Changeset.create!(repository: @repository, revision: 'c1', scmid: 'c1', committed_on: 3.days.ago,
+                            committer: 'tester', parents: [@c0])
     @c2 = Changeset.create!(repository: @repository, revision: 'c2', scmid: 'c2', committed_on: 2.days.ago,
                             committer: 'tester', parents: [@c1])
     @issue = Issue.find(1)
     @issue.changesets << @c2
     Deployment.create!(project: @project, repository: @repository, author: User.find(1), environment: 'staging',
-                       result: Deployment::RESULT_SUCCESS, to_revision: 'c2')
+                       result: Deployment::RESULT_SUCCESS, from_revision: 'c0', to_revision: 'c2')
 
     @request.session[:user_id] = 2
   end

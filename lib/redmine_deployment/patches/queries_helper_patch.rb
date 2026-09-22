@@ -70,7 +70,7 @@ module RedmineDeployment
             ret << link_to_revision_from_deployment(deployment, :to_revision)
             ret
           elsif deployment.to_revision.present?
-            "000000 ... #{link_to_revision_from_deployment(deployment, :to_revision)}".html_safe
+            "? ... #{link_to_revision_from_deployment(deployment, :to_revision)}".html_safe
           elsif deployment.from_revision.present?
             "#{link_to_revision_from_deployment(deployment, :from_revision)} ... ?".html_safe
           else

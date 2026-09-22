@@ -1,6 +1,10 @@
 # redmine deployment - CHANGELOG
 
 ## unreleased
+* **[fix]** a deployment without both revisions could make its detail page never finish loading — a missing (or not yet fetched) `from_revision` was read as "since the root commit", so the deployment claimed the *entire* repository history: every changeset and every issue ever referenced, rendered unpaginated. `Deployment#changesets` now requires **both** boundaries and returns nothing without them
+* **[fix]** the same open-ended range made `RedmineDeployment::DeployStatus` mark every issue of a repository as deployed — deployments without a resolvable `from_revision` are now skipped for the deploy indicator / badge too _(the branch steps keep their "merged into this head" semantics)_
+* **[add]** `changesets_unavailable_reason` value `:incomplete_range` with an explanatory notice _(en + de)_, and the issue tab of the detail page now shows the reason as well _(previously only the revisions tab did)_
+* **[ref]** revision range of a deployment without a `from_revision` is displayed as `? ... <rev>` instead of `000000 ... <rev>`, which suggested "since the beginning"
 * **[add]** deployment pipeline: dynamic values - wildcards (`feature/*`) and issue placeholders (`{%issue.id%}`, `{%tracker.name%}`, ...), resolved per issue
 * **[add]** permission **"Indikator / Badge ansehen"** _(`view_deployment_indicator`)_ for the deploy status on the issue page and in issue lists
 * **[ref]** permission `manage_deployment_settings` renamed to **"Deployment Einstellungen anpassen"**

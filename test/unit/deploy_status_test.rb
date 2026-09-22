@@ -20,8 +20,11 @@ class DeployStatusTest < ActiveSupport::TestCase
     @repository   = Repository::Git.create!(project: @project, identifier: 'taskboard', url: '/tmp/taskboard.git')
     @environments = [Environment.new('deployment', 'staging', 'Staging'), Environment.new('deployment', 'production', 'Live')]
 
-    # c1 <- c2 <- c3 <- c4 <- c5 (linear history)
-    @c1 = commit('c1', [], 10.days.ago)
+    # c0 <- c1 <- c2 <- c3 <- c4 <- c5 (linear history)
+    # c0 is the root commit and is never linked to an issue: it only serves as the lower bound of deployments
+    # that are meant to cover "everything" - a deployment needs both boundaries (see Deployment#changesets).
+    @c0 = commit('c0', [], 11.days.ago)
+    @c1 = commit('c1', [@c0], 10.days.ago)
     @c2 = commit('c2', [@c1], 9.days.ago)
     @c3 = commit('c3', [@c2], 8.days.ago)
     @c4 = commit('c4', [@c3], 7.days.ago)
@@ -29,7 +32,7 @@ class DeployStatusTest < ActiveSupport::TestCase
   end
 
   def test_issue_without_changesets_has_no_status
-    deploy('staging', from: nil, to: @c5)
+    deploy('staging', from: @c0, to: @c5)
 
     status = status_for(Issue.find(1))
 
@@ -138,7 +141,7 @@ class DeployStatusTest < ActiveSupport::TestCase
 
   def test_deployments_before_the_commits_are_not_loaded
     link(Issue.find(1), @c4)
-    deploy('production', from: nil, to: @c1, created_on: 30.days.ago)
+    deploy('production', from: @c0, to: @c1, created_on: 30.days.ago)
     deploy('production', from: @c3, to: @c5)
 
     status   = status_for(Issue.find(1))
@@ -160,20 +163,28 @@ class DeployStatusTest < ActiveSupport::TestCase
 
     deployments = [
       deploy('production', from: @c2, to: merge),
-      deploy('production', from: nil, to: @c3),
       deploy('production', from: side, to: merge),
-      deploy('production', from: @c5, to: @c3), # rollback
-      deploy('production', from: 'unknown', to: @c4)
+      deploy('production', from: @c5, to: @c3) # rollback
     ]
     service = DeployStatus.new([], user: @user, environments: @environments)
 
     deployments.each do |deployment|
       revisions = [@repository.find_changeset_by_name(deployment.to_revision), @repository.find_changeset_by_name(deployment.from_revision)]
       expected  = deployment.changesets.pluck(:id).sort
-      actual    = service.send(:range_ids, revisions[0].id, revisions[1]&.id) { flunk 'no fallback expected' }.sort
+      actual    = service.send(:range_ids, revisions[0].id, revisions[1].id) { flunk 'no fallback expected' }.sort
 
       assert_equal expected, actual, "range of #{deployment.from_revision}..#{deployment.to_revision}"
     end
+  end
+
+  # A deployment missing a boundary has no commit range at all (see Deployment#changesets) - it must not be
+  # treated as "everything since the root commit" and mark every issue of the repository as deployed.
+  def test_deployment_without_resolvable_from_revision_covers_nothing
+    link(Issue.find(1), @c2, @c3)
+    deploy('production', from: nil, to: @c5)
+    deploy('production', from: 'unknown', to: @c5)
+
+    assert_equal %i[none none], status_for(Issue.find(1))[Issue.find(1)].environments.map(&:state)
   end
 
   def test_branch_environment
@@ -306,8 +317,8 @@ class DeployStatusTest < ActiveSupport::TestCase
     use_environments(['deployment', 'review-{%issue.id%}', 'Review'], ['deployment', 'prod-*', 'Live'])
     deploy('review-1', from: @c1, to: @c3)
     deploy('review-2', from: @c1, to: @c5)
-    deploy('prod-eu', from: nil, to: @c3)
-    deploy('production', from: nil, to: @c5) # does not match prod-*
+    deploy('prod-eu', from: @c0, to: @c3)
+    deploy('production', from: @c0, to: @c5) # does not match prod-*
     link(Issue.find(1), @c3)
     link(Issue.find(2), @c4)
 

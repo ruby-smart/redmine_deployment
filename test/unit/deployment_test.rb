@@ -66,10 +66,23 @@ class DeploymentTest < ActiveSupport::TestCase
     assert_equal [@b, @c, @x, @y, @d, merge].map(&:id).sort, ids.sort
   end
 
-  def test_changesets_without_from_revision_returns_all_ancestors_of_to
+  # A deployment without a from_revision has no defined range - it must NOT be read as
+  # "everything since the root commit", which would make it claim the whole repository
+  # history (and every issue referenced by it) and stall the detail page.
+  def test_changesets_without_from_revision_is_empty
     deployment = build_deployment(:from_revision => nil, :to_revision => @c.revision)
 
-    assert_equal [@a, @b, @c].map(&:id).sort, deployment.changesets.pluck(:id).sort
+    assert_empty deployment.changesets
+    assert_empty deployment.related_issues
+    assert_equal :incomplete_range, deployment.changesets_unavailable_reason
+  end
+
+  def test_changesets_without_any_revision_is_empty
+    deployment = build_deployment(:from_revision => nil, :to_revision => nil)
+
+    assert_empty deployment.changesets
+    assert_empty deployment.related_issues
+    assert_equal :incomplete_range, deployment.changesets_unavailable_reason
   end
 
   def test_changesets_unavailable_when_to_revision_not_found
@@ -79,21 +92,36 @@ class DeploymentTest < ActiveSupport::TestCase
     assert_equal :revision_not_found, deployment.changesets_unavailable_reason
   end
 
+  # An unresolvable from_revision must not silently degrade to "no lower bound" either.
+  def test_changesets_unavailable_when_from_revision_not_found
+    deployment = build_deployment(:from_revision => 'deadbeefdeadbeef', :to_revision => @d.revision)
+
+    assert_empty deployment.changesets
+    assert_empty deployment.related_issues
+    assert_equal :revision_not_found, deployment.changesets_unavailable_reason
+  end
+
   def test_changesets_unavailable_when_to_revision_blank
     deployment = build_deployment(:from_revision => @a.revision, :to_revision => nil)
 
     assert_empty deployment.changesets
-    assert_equal :revision_not_found, deployment.changesets_unavailable_reason
+    assert_equal :incomplete_range, deployment.changesets_unavailable_reason
   end
 
   def test_changesets_unavailable_when_dag_not_populated
     empty_repo = Repository::Git.create!(:project => Project.find(2), :url => '/tmp/empty.git')
-    changeset  = Changeset.create!(
-      :repository => empty_repo, :revision => 'solo', :scmid => 'solo',
+    first      = Changeset.create!(
+      :repository => empty_repo, :revision => 'solo1', :scmid => 'solo1',
+      :committed_on => 1.hour.ago, :committer => 'x'
+    )
+    second     = Changeset.create!(
+      :repository => empty_repo, :revision => 'solo2', :scmid => 'solo2',
       :committed_on => Time.current, :committer => 'x'
     )
     deployment = build_deployment(
-      :repository => empty_repo, :from_revision => nil, :to_revision => changeset.revision
+      :repository    => empty_repo,
+      :from_revision => first.revision,
+      :to_revision   => second.revision
     )
 
     assert_empty deployment.changesets

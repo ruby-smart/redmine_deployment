@@ -29,7 +29,7 @@ class DeploymentRevisionsHelperTest < Redmine::HelperTest
 
     html = link_to_deployment_revisions(deployment)
 
-    assert_includes html, '000000 ... '
+    assert_includes html, '? ... '
     assert_select_in html, 'a[href=?]', revision_path('bbbbbbbbbbbb')
   end
 

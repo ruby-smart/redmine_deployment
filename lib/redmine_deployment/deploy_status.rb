@@ -240,8 +240,13 @@ module RedmineDeployment
         to_id = revisions[[repository.id, deployment.to_revision]]
         next unless to_id
 
+        # Both boundaries are required, exactly as in Deployment#changesets: a deployment whose from_revision is
+        # blank or not fetched into Redmine has no defined commit range. Treating it as "since the root commit"
+        # would make it cover the entire history and mark every issue as deployed.
         from_id = revisions[[repository.id, deployment.from_revision]]
-        ids     = range_ids(to_id, from_id) { ::Deployment.find(deployment.id).changesets.pluck(:id) }
+        next unless from_id
+
+        ids = range_ids(to_id, from_id) { ::Deployment.find(deployment.id).changesets.pluck(:id) }
         ids.each do |changeset_id|
           next unless changeset_ids.include?(changeset_id)
 
@@ -270,7 +275,7 @@ module RedmineDeployment
           next unless repository && dag_available?(repository)
 
           branch_heads(repository, target).each do |head|
-            ids = range_ids(head.id, nil) { ::Deployment.new(repository: repository, to_revision: head.revision).changesets.pluck(:id) }
+            ids = range_ids(head.id, nil) { ancestor_ids_via_dag(head.id) }
             ids.each { |changeset_id| covered[changeset_id] = true if repository_changeset_ids.include?(changeset_id) }
           end
         end
@@ -343,8 +348,10 @@ module RedmineDeployment
           joins("INNER JOIN #{parents_table} cp ON cp.changeset_id = #{Changeset.table_name}.id").exists?
     end
 
-    # Ids of the changesets in the commit range from..to (inclusive to, exclusive from and its ancestors; without
-    # from: all ancestors of to) - identical to Deployment#changesets, cached by the changeset ids.
+    # Ids of the changesets in the commit range from..to (inclusive to, exclusive from and its ancestors).
+    # With a from_id this is identical to Deployment#changesets; without one it returns all ancestors of to,
+    # which is the "merged into this branch head" question of +covering_branches+ - NOT a deployment range
+    # (a deployment without both boundaries covers nothing, see +covering_deployments+). Cached by changeset ids.
     #
     # The block is the fallback, if the range can't be computed by SQL (it has to return the ids).
     def range_ids(to_id, from_id)
@@ -391,6 +398,24 @@ module RedmineDeployment
       return unless connection.adapter_name.to_s.match?(/mysql/i)
 
       connection.execute('SET SESSION cte_max_recursion_depth = 4294967295')
+    end
+
+    # All ancestors of the changeset (inclusive), walked in Ruby - the fallback of +covering_branches+ when the
+    # recursive SQL isn't available. Deployment#changesets can't serve as the fallback here: it requires both
+    # range boundaries and would return nothing for an open-ended "everything reachable from this head".
+    #
+    # @return [Array<Integer>] the ancestor changeset ids
+    def ancestor_ids_via_dag(head_id)
+      visited  = Set.new([head_id])
+      frontier = [head_id]
+
+      while frontier.any? && visited.size < ::Deployment::MAX_TRAVERSAL
+        parent_ids = ChangesetParent.where(changeset_id: frontier).distinct.pluck(:parent_id)
+        frontier   = parent_ids.reject { |id| visited.include?(id) }
+        visited.merge(frontier)
+      end
+
+      visited.to_a
     end
 
     def parents_table
