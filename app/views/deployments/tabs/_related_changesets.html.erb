@@ -19,6 +19,8 @@
       <% end %>
     </tbody>
   </table>
+<% elsif (reason = @deployment.changesets_unavailable_reason) %>
+  <p class="nodata"><%= l("label_deployment_changesets_#{reason}") %></p>
 <% else %>
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% end %>

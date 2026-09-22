@@ -12,6 +12,9 @@ de:
   label_deployment_statistics: Deployment-Statistik
   label_deployments_per_month: Erfolgreiche Deployments pro Monat
   label_deployments_per_author: Erfolgreiche Deployments pro Autor
+  label_deployment_changesets_incomplete_range: Diesem Deployment fehlt die Start- oder Ziel-Revision. Ohne beide Revisionen lässt sich kein Commit-Bereich bestimmen, daher werden keine Changesets und keine Tickets angezeigt.
+  label_deployment_changesets_revision_not_found: Eine der Revisionen des Deployments wurde noch nicht in Redmine geladen, daher können die zugehörigen Changesets nicht ermittelt werden.
+  label_deployment_changesets_no_repository: Diesem Deployment ist kein Repository zugeordnet.
   results:
     success: erfolgreich
     fail: fehlgeschlagen

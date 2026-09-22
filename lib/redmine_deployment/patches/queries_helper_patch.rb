@@ -16,18 +16,22 @@ module RedmineDeployment
 
           case column.name
           when :from_revision, :to_revision
-            value.blank? ? "-" : link_to_revision_from_deployment(item, column.name)
+            # an all-zero revision is Git's "no revision" placeholder, not something to link to
+            Deployment.null_revision?(value) ? "-" : link_to_revision_from_deployment(item, column.name)
           when :revisions
-            if item.to_revision.present? && item.from_revision.present?
+            from = Deployment.null_revision?(item.from_revision) ? nil : :from_revision
+            to   = Deployment.null_revision?(item.to_revision)   ? nil : :to_revision
+
+            if from && to
               ret = ''.html_safe
-              ret << link_to_revision_from_deployment(item, :from_revision)
+              ret << link_to_revision_from_deployment(item, from)
               ret << ' ... '
-              ret << link_to_revision_from_deployment(item, :to_revision)
+              ret << link_to_revision_from_deployment(item, to)
               ret
-            elsif item.to_revision.present?
-              "000000 ... #{link_to_revision_from_deployment(item, :to_revision)}".html_safe
-            elsif item.from_revision.present?
-              "#{link_to_revision_from_deployment(item, :from_revision)} ... ?".html_safe
+            elsif to
+              "? ... #{link_to_revision_from_deployment(item, to)}".html_safe
+            elsif from
+              "#{link_to_revision_from_deployment(item, from)} ... ?".html_safe
             else
               "-"
             end
