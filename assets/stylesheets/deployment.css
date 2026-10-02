@@ -62,8 +62,9 @@ a.branch:hover span.badge{
 /* the status itself is the button that opens it - it keeps the look of the place it stands in */
 button.deploy-status-toggle { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; border: 0; background: none; padding: 0; margin: 0; height: auto; line-height: inherit; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 button.deploy-status-toggle:hover { opacity: .75; }
-/* one popup for the whole page, placed at the status it was opened at (deployment_status.js) */
-.deploy-popup { display: none; position: fixed; z-index: 1000; width: max-content; max-width: min(88vw, 720px); box-sizing: border-box; border: 1px solid #c7ccd1; border-radius: 6px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); padding: 12px 14px; text-align: left; white-space: normal; }
+/* one popup for the whole page, placed at the status it was opened at (deployment_status.js) - as wide as its
+   pipeline needs (all steps in one row), up to 90% of the window; only then do the steps wrap */
+.deploy-popup { display: none; position: fixed; z-index: 1000; width: max-content; max-width: 90vw; box-sizing: border-box; border: 1px solid #c7ccd1; border-radius: 6px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); padding: 12px 14px; text-align: left; white-space: normal; }
 .deploy-steps-head { margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid #eceff1; font-size: 12px; font-weight: 600; color: #1f2933; }
 .deploy-steps { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; margin: 0; }
 .deploy-steps-foot { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid #eceff1; font-size: 11px; color: #66707a; }
