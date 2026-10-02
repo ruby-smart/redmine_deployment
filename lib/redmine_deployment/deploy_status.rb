@@ -22,8 +22,10 @@ module RedmineDeployment
   # "Live since" is the time, from which on all changesets were deployed to the last environment (unknown, if the
   # last environment is a branch).
   #
-  # All issues are resolved at once (a handful of queries per project, no N+1). The commit range of a deployment and
-  # the ancestors of a branch head never change, so they are computed once by a recursive SQL query and then cached.
+  # All issues are resolved at once (a handful of queries per project, no N+1) and nothing walks the commit graph
+  # here: the changesets of a deployment are stored (DeploymentChangeset, resolved once in the background - see
+  # Deployment#resolve_changesets!) and read by one indexed query; the ancestors of a branch head never change for
+  # a given commit, so they are computed once by a recursive SQL query (RedmineDeployment::CommitRange) and cached.
   class DeployStatus
     # target: the value of the environment resolved for the issue (e.g. "feature/42-*" for "feature/{%issue.id%}-*")
     Environment = Struct.new(:key, :label, :color, :target, :covered, :total, keyword_init: true) do
@@ -68,8 +70,6 @@ module RedmineDeployment
     end
 
     CACHE_NAMESPACE = 'redmine_deployment/commit_range'
-    # a commit is expected to be deployed after it was committed - tolerance for clock skews
-    COMMIT_TOLERANCE = 1.day
 
     # the permission, that shows the deploy status on the issue page and in the issue query columns
     INDICATOR_PERMISSION = :view_deployment_indicator
@@ -146,7 +146,7 @@ module RedmineDeployment
       rows.group_by { |row| issue_projects[row.first] }.each_with_object({}) do |(project_id, project_rows), statuses|
         environments = environments_for(projects_by_id[project_id])
         targets      = targets_for(environments, project_rows.map(&:first).uniq.map { |issue_id| issues_by_id[issue_id] })
-        covering     = covering_deployments(project_rows, repositories, environments, targets).
+        covering     = covering_deployments(project_rows, environments, targets).
           merge(covering_branches(project_rows, repositories, environments, targets))
 
         code = code_for(projects_by_id[project_id])
@@ -197,61 +197,43 @@ module RedmineDeployment
       environments.flat_map { |environment| targets[environment.key].values.compact.uniq.map { |target| [environment.key, target] } }
     end
 
-    # @return [Array<Array>] [issue_id, changeset_id, repository_id, committed_on]
+    # @return [Array<Array>] [issue_id, changeset_id, repository_id]
     def changeset_rows(issue_ids)
       return [] if issue_ids.empty?
 
       Changeset.joins("INNER JOIN #{Changeset.table_name_prefix}changesets_issues#{Changeset.table_name_suffix} ci ON ci.changeset_id = #{Changeset.table_name}.id").
         where('ci.issue_id' => issue_ids).
-        pluck(Arel.sql('ci.issue_id'), "#{Changeset.table_name}.id", "#{Changeset.table_name}.repository_id", "#{Changeset.table_name}.committed_on")
+        pluck(Arel.sql('ci.issue_id'), "#{Changeset.table_name}.id", "#{Changeset.table_name}.repository_id")
     end
 
+    # The successful deployments of the changesets by their stored changesets (DeploymentChangeset - the commit
+    # range of each deployment, resolved once in the background, see Deployment#resolve_changesets!): one indexed
+    # query, nothing is computed here. A deployment whose changesets are not resolved (yet) covers nothing - just
+    # like one without a defined range (a missing boundary, see Deployment#changesets).
+    #
     # @return [Hash{Array(String, Environments::Target) => Hash{Integer => Array<Deployment>}}] successful deployments
     #   by [environment key, target] and changeset id
-    def covering_deployments(rows, repositories, environments, targets)
+    def covering_deployments(rows, environments, targets)
       deployment_environments = environments.select(&:deployment?)
       wanted = distinct_targets(deployment_environments, targets)
-      return {} if wanted.empty?
-
-      changeset_ids  = rows.to_set(&:second)
-      repository_ids = rows.map(&:third).uniq
-      committed_from = rows.map(&:fourth).compact.min
-
-      deployments = ::Deployment.
-        where(repository_id: repository_ids, result: ::Deployment::RESULT_SUCCESS).
-        select(:id, :repository_id, :environment, :from_revision, :to_revision, :created_on)
-      # dynamic values are matched in Ruby (wildcards, case-insensitive), literal ones by the database already
-      deployments = deployments.where(environment: wanted.map { |_, target| target.text }.uniq) if deployment_environments.none?(&:dynamic?)
-      deployments = deployments.where("#{::Deployment.table_name}.created_on >= ?", committed_from - COMMIT_TOLERANCE) if committed_from
-      deployments = deployments.to_a
-
       covering = Hash.new { |hash, key| hash[key] = {} }
-      return covering if deployments.empty?
+      return covering if wanted.empty?
 
-      revisions = resolve_revisions(deployments, repositories)
+      links = DeploymentChangeset.joins(:deployment).
+        where(changeset_id: rows.map(&:second).uniq, ::Deployment.table_name => { result: ::Deployment::RESULT_SUCCESS })
+      # dynamic values are matched in Ruby (wildcards, case-insensitive), literal ones by the database already
+      if deployment_environments.none?(&:dynamic?)
+        links = links.where(::Deployment.table_name => { environment: wanted.map { |_, target| target.text }.uniq })
+      end
+      links = links.pluck(:deployment_id, :changeset_id)
+      return covering if links.empty?
 
-      deployments.each do |deployment|
-        matching = wanted.select { |_, target| target.match?(deployment.environment) }
-        next if matching.empty?
+      deployments = ::Deployment.where(id: links.map(&:first).uniq).
+        select(:id, :repository_id, :environment, :created_on).index_by(&:id)
+      matching    = deployments.transform_values { |deployment| wanted.select { |_, target| target.match?(deployment.environment) } }
 
-        repository = repositories[deployment.repository_id]
-        next unless repository && dag_available?(repository)
-
-        to_id = revisions[[repository.id, deployment.to_revision]]
-        next unless to_id
-
-        # Both boundaries are required, exactly as in Deployment#changesets: a deployment whose from_revision is
-        # blank or not fetched into Redmine has no defined commit range. Treating it as "since the root commit"
-        # would make it cover the entire history and mark every issue as deployed.
-        from_id = revisions[[repository.id, deployment.from_revision]]
-        next unless from_id
-
-        ids = range_ids(to_id, from_id) { ::Deployment.find(deployment.id).changesets.pluck(:id) }
-        ids.each do |changeset_id|
-          next unless changeset_ids.include?(changeset_id)
-
-          matching.each { |key| (covering[key][changeset_id] ||= []) << deployment }
-        end
+      links.each do |deployment_id, changeset_id|
+        matching[deployment_id].each { |key| (covering[key][changeset_id] ||= []) << deployments[deployment_id] }
       end
 
       covering
@@ -275,8 +257,7 @@ module RedmineDeployment
           next unless repository && dag_available?(repository)
 
           branch_heads(repository, target).each do |head|
-            ids = range_ids(head.id, nil) { ancestor_ids_via_dag(head.id) }
-            ids.each { |changeset_id| covered[changeset_id] = true if repository_changeset_ids.include?(changeset_id) }
+            range_ids(head.id).each { |changeset_id| covered[changeset_id] = true if repository_changeset_ids.include?(changeset_id) }
           end
         end
         [[key, target], covered]
@@ -317,112 +298,23 @@ module RedmineDeployment
         end
     end
 
-    # Resolves the revisions of the deployments like Repository::Git#find_changeset_by_name (exact revision,
-    # then scmid prefix) - the exact matches in one query.
-    #
-    # @return [Hash{[Integer, String] => Integer}] changeset id by [repository id, revision]
-    def resolve_revisions(deployments, repositories)
-      # a missing boundary is skipped here, so it stays unresolved and +covering_deployments+ drops the
-      # deployment - including Git's all-zero null revision, which must never be looked up (see
-      # Deployment.null_revision?: a short "000000" would prefix-match an arbitrary commit)
-      wanted = deployments.flat_map { |d| [[d.repository_id, d.from_revision], [d.repository_id, d.to_revision]] }.
-        reject { |_, revision| ::Deployment.null_revision?(revision) }.uniq
-
-      resolved = Changeset.where(repository_id: wanted.map(&:first).uniq, revision: wanted.map(&:second).uniq).
-        pluck(:repository_id, :revision, :id).
-        to_h { |repository_id, revision, id| [[repository_id, revision], id] }
-
-      (wanted - resolved.keys).each do |repository_id, revision|
-        changeset = repositories[repository_id]&.find_changeset_by_name(revision)
-        resolved[[repository_id, revision]] = changeset.id if changeset
-      end
-
-      resolved
-    end
-
-    # the parent DAG is usable: a git repository with populated changeset parents (see Deployment#dag_available?)
+    # the parent DAG is usable: a git repository with populated changeset parents (once per repository and request)
     def dag_available?(repository)
       @dag_available ||= {}
       return @dag_available[repository.id] if @dag_available.key?(repository.id)
 
-      @dag_available[repository.id] =
-        repository.is_a?(Repository::Git) &&
-        Changeset.where(repository_id: repository.id).
-          joins("INNER JOIN #{parents_table} cp ON cp.changeset_id = #{Changeset.table_name}.id").exists?
+      @dag_available[repository.id] = CommitRange.dag_available?(repository)
     end
 
-    # Ids of the changesets in the commit range from..to (inclusive to, exclusive from and its ancestors).
-    # With a from_id this is identical to Deployment#changesets; without one it returns all ancestors of to,
-    # which is the "merged into this branch head" question of +covering_branches+ - NOT a deployment range
-    # (a deployment without both boundaries covers nothing, see +covering_deployments+). Cached by changeset ids.
+    # Ids of the changesets in the commit range from..to (inclusive to, exclusive from and its ancestors - see
+    # RedmineDeployment::CommitRange). Without a from_id it returns all ancestors of to, which is the "merged into
+    # this branch head" question of +covering_branches+ - NOT a deployment range (the changesets of a deployment
+    # are stored, see +covering_deployments+; a deployment without both boundaries covers nothing).
     #
-    # The block is the fallback, if the range can't be computed by SQL (it has to return the ids).
-    def range_ids(to_id, from_id)
-      Rails.cache.fetch([CACHE_NAMESPACE, to_id, from_id]) { compute_range_ids(to_id, from_id) }
-    rescue ActiveRecord::StatementInvalid => e
-      # e.g. a database without recursive CTEs - fall back to the (slower) DAG walk of Deployment#changesets
-      Rails.logger.warn("RedmineDeployment::DeployStatus: #{e.message} - falling back to Deployment#changesets")
-      yield
-    end
-
-    def compute_range_ids(to_id, from_id)
-      connection = Changeset.connection
-      prepare_recursion(connection)
-
-      changesets = Changeset.table_name
-      excluded   =
-        if from_id
-          <<~SQL
-            excluded(id) AS (
-              SELECT id FROM #{changesets} WHERE id = #{from_id.to_i}
-              UNION
-              SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN excluded ON cp.changeset_id = excluded.id
-            ),
-          SQL
-        end
-      not_excluded = from_id ? ' AND id NOT IN (SELECT id FROM excluded)' : ''
-      parent_not_excluded = from_id ? ' WHERE cp.parent_id NOT IN (SELECT id FROM excluded)' : ''
-
-      sql = <<~SQL
-        WITH RECURSIVE #{excluded}
-        deployed(id) AS (
-          SELECT id FROM #{changesets} WHERE id = #{to_id.to_i}#{not_excluded}
-          UNION
-          SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN deployed ON cp.changeset_id = deployed.id#{parent_not_excluded}
-        )
-        SELECT id FROM deployed
-      SQL
-
-      connection.select_values(sql).map(&:to_i)
-    end
-
-    # MySQL aborts recursive CTEs after 1000 iterations by default - a linear git history is much deeper
-    def prepare_recursion(connection)
-      return unless connection.adapter_name.to_s.match?(/mysql/i)
-
-      connection.execute('SET SESSION cte_max_recursion_depth = 4294967295')
-    end
-
-    # All ancestors of the changeset (inclusive), walked in Ruby - the fallback of +covering_branches+ when the
-    # recursive SQL isn't available. Deployment#changesets can't serve as the fallback here: it requires both
-    # range boundaries and would return nothing for an open-ended "everything reachable from this head".
-    #
-    # @return [Array<Integer>] the ancestor changeset ids
-    def ancestor_ids_via_dag(head_id)
-      visited  = Set.new([head_id])
-      frontier = [head_id]
-
-      while frontier.any? && visited.size < ::Deployment::MAX_TRAVERSAL
-        parent_ids = ChangesetParent.where(changeset_id: frontier).distinct.pluck(:parent_id)
-        frontier   = parent_ids.reject { |id| visited.include?(id) }
-        visited.merge(frontier)
-      end
-
-      visited.to_a
-    end
-
-    def parents_table
-      "#{Changeset.table_name_prefix}changeset_parents#{Changeset.table_name_suffix}"
+    # One recursive query (about 15 ms for a history of 17,000 commits on MySQL 8), cached by the changeset ids:
+    # the ancestors of a commit never change, only the head of a branch moves on.
+    def range_ids(to_id, from_id = nil)
+      Rails.cache.fetch([CACHE_NAMESPACE, to_id, from_id]) { CommitRange.ids(to_id, from_id) }
     end
   end
 end

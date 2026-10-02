@@ -13,7 +13,8 @@ de:
   label_deployment_statistics: Deployment-Statistik
   label_deployments_per_month: Erfolgreiche Deployments pro Monat
   label_deployments_per_author: Erfolgreiche Deployments pro Autor
-  label_deployment_changesets_revision_not_found: Eine der Revisionen des Deployments wurde noch nicht in Redmine geladen, daher können die zugehörigen Changesets nicht ermittelt werden.
+  label_deployment_changesets_revision_not_found: Eine der Revisionen des Deployments wurde noch nicht in Redmine geladen, daher können die zugehörigen Changesets nicht ermittelt werden. Sobald das Repository sie geladen hat, werden sie automatisch ermittelt.
+  label_deployment_changesets_not_resolved: Die Changesets dieses Deployments wurden noch nicht ermittelt. Das geschieht im Hintergrund direkt nach dem Protokollieren des Deployments und nachdem das Repository neue Changesets geladen hat - oder über den Rake-Task redmine:deployment:resolve_changesets.
   label_deployment_changesets_incomplete_range: Diesem Deployment fehlt die Start- oder Ziel-Revision. Ohne beide Revisionen lässt sich kein Commit-Bereich bestimmen, daher werden keine Changesets und keine Tickets angezeigt.
   label_deployment_changesets_dag_unavailable: Die Commit-Historie dieses Repositorys ist nicht verfügbar, daher können die zugehörigen Changesets nicht ermittelt werden.
   label_deployment_changesets_no_repository: Diesem Deployment ist kein Repository zugeordnet.

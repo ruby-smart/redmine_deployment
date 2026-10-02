@@ -14,25 +14,14 @@
 
 
 <%= javascript_tag do %>
-// Color palette used to assign one color per environment (dataset)
-var deploymentChartColors = [
-  'rgba(54, 162, 235, 0.7)',
-  'rgba(255, 99, 132, 0.7)',
-  'rgba(255, 206, 86, 0.7)',
-  'rgba(75, 192, 192, 0.7)',
-  'rgba(153, 102, 255, 0.7)',
-  'rgba(255, 159, 64, 0.7)',
-  'rgba(46, 204, 113, 0.7)',
-  'rgba(199, 199, 199, 0.7)'
-];
-
+// The color of a dataset comes with the data: one color per environment of the project, the same in every graph
+// (DeploymentsController::ENVIRONMENT_COLORS, assigned per environment - not per position in a graph)
 function deploymentDatasets(data){
-  return data['datasets'].map(function(ds, i){
-    var color = deploymentChartColors[i % deploymentChartColors.length];
+  return data['datasets'].map(function(ds){
     return {
       label: ds['name'],
-      backgroundColor: color,
-      borderColor: color.replace('0.7', '1'),
+      backgroundColor: ds['color'] + 'b3', // 70% opaque
+      borderColor: ds['color'],
       borderWidth: 1,
       data: ds['data']
     };

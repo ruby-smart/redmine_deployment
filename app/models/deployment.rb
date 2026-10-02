@@ -14,10 +14,19 @@ class Deployment < ApplicationRecord
   # +dependent:+), leaving existing records with a dangling +repository_id+. A repository is
   # still required when creating a deployment (validation below).
   belongs_to :repository, :optional => true
+  # the changesets of the commit range +from_revision..to_revision+, stored by +resolve_changesets!+
+  has_many :deployment_changesets, :dependent => :delete_all
 
   validates_presence_of :author, :project
   validates_presence_of :repository, :on => :create
   validates_inclusion_of :result, :in => RESULTS
+
+  # Resolving the changesets reads the commit graph - never in the request that logs the deployment: the deploy
+  # process must not wait for it. A job of the background queue does it right after the commit.
+  after_commit :resolve_changesets_later, :on => :create
+
+  # deployments whose changesets have not been resolved (yet) - see +resolve_changesets!+
+  scope :changesets_pending, -> { where(:changesets_resolved_at => nil) }
 
   attr_protected :id if ActiveRecord::VERSION::MAJOR <= 4
   safe_attributes 'from_revision', 'to_revision', 'environment', 'servers', 'result', 'branch'
@@ -37,6 +46,23 @@ class Deployment < ApplicationRecord
     revision.blank? || NULL_REVISION.match?(revision.to_s.strip)
   end
 
+  # Resolves the changesets of the deployments of the scope (see +resolve_changesets!+) - the rake task
+  # redmine:deployment:resolve_changesets.
+  #
+  # @param [ActiveRecord::Relation] scope the deployments, the pending ones by default
+  # @return [Hash] <tt>{ :resolved => count, :unresolved => { 'reason' => count } }</tt>
+  def self.resolve_changesets!(scope = changesets_pending)
+    summary = { :resolved => 0, :unresolved => Hash.new(0) }
+    scope.preload(:repository).find_each do |deployment|
+      if deployment.resolve_changesets!
+        summary[:resolved] += 1
+      else
+        summary[:unresolved][deployment.changesets_error] += 1
+      end
+    end
+    summary
+  end
+
   def revisions
     from = self.class.null_revision?(from_revision) ? nil : from_revision
     to   = self.class.null_revision?(to_revision)   ? nil : to_revision
@@ -52,30 +78,22 @@ class Deployment < ApplicationRecord
     end
   end
 
-  # Defensive upper bound on how many changesets we walk while computing a range,
-  # guarding against pathological histories. Logged if hit; never silently truncated.
-  MAX_TRAVERSAL = 50_000
-
-  # Changesets deployed by this deployment: the git commit range +from_revision..to_revision+,
-  # i.e. commits reachable from +to_revision+ by following the parent DAG, minus commits
-  # reachable from +from_revision+ (exclusive of +from_revision+, inclusive of +to_revision+).
-  # This mirrors <tt>git log from..to</tt> and, unlike a commit-time window, correctly excludes
-  # commits on other branches that were never merged into the deployed revision.
+  # Changesets deployed by this deployment: the git commit range +from_revision..to_revision+, i.e. commits
+  # reachable from +to_revision+ by following the parent DAG, minus commits reachable from +from_revision+
+  # (exclusive of +from_revision+, inclusive of +to_revision+ - <tt>git log from..to</tt>, which unlike a
+  # commit-time window correctly excludes commits on other branches that were never merged). The range is
+  # resolved once and stored (DeploymentChangeset, see +resolve_changesets!+): this is an indexed lookup,
+  # nothing walks the commit graph here.
   #
-  # BOTH boundaries are required. A deployment that is missing one of them (a failed or
-  # incompletely reported deployment) has an *undefined* range, not an open-ended one: it
-  # returns no changesets at all. Treating a missing +from_revision+ as "since the root commit"
-  # used to make such a deployment claim the entire repository history - every changeset and
-  # every issue ever referenced - which made the detail page effectively never finish loading.
+  # BOTH boundaries are required. A deployment that is missing one of them (a failed or incompletely reported
+  # deployment) has an *undefined* range, not an open-ended one: it returns no changesets at all.
   #
-  # Returns an ActiveRecord::Relation so callers can chain +preload+/+reorder+/+select+.
-  # When the range cannot be computed from the DAG (see +changesets_unavailable_reason+) it
-  # returns +Changeset.none+ rather than falling back to an approximate time window.
+  # Returns an ActiveRecord::Relation so callers can chain +preload+/+reorder+/+select+. While the range is not
+  # resolved (yet) or can't be (see +changesets_unavailable_reason+) it returns +Changeset.none+.
   def changesets
     return Changeset.none if changesets_unavailable_reason
 
-    ids = changeset_range_ids
-    ids.empty? ? Changeset.none : repository.changesets.where(:id => ids)
+    Changeset.where(:id => deployment_changesets.select(:changeset_id))
   end
 
   # Explains why +changesets+ is empty for reasons other than "the range genuinely contains
@@ -84,109 +102,84 @@ class Deployment < ApplicationRecord
   #   :incomplete_range    - +from_revision+ and/or +to_revision+ is missing (blank or Git's
   #                          null revision), so there is no range
   #   :dag_unavailable     - non-git repo, or a git repo whose parent graph was never populated
-  #   :revision_not_found  - a boundary revision has not been fetched into Redmine yet
+  #                          (found by the last attempt to resolve the changesets)
+  #   :revision_not_found  - a boundary revision has not been fetched into Redmine yet (found by
+  #                          the last attempt - tried again after the next fetch of the repository)
+  #   :not_resolved        - the changesets have not been resolved yet (see +resolve_changesets!+)
   def changesets_unavailable_reason
     return :no_repository unless repository
     return :incomplete_range if self.class.null_revision?(from_revision) || self.class.null_revision?(to_revision)
-    return :dag_unavailable unless dag_available?
-    return :revision_not_found unless resolved_from_changeset && resolved_to_changeset
+    return changesets_error.to_sym if changesets_error.present?
+    return :not_resolved unless changesets_resolved?
 
     nil
   end
 
+  # true, if the changesets of the commit range are stored (see +resolve_changesets!+)
+  def changesets_resolved?
+    changesets_resolved_at.present?
+  end
+
   # Issues referenced by the changesets that are part of this deployment
   def related_issues
-    return Issue.none unless repository
+    return Issue.none if changesets_unavailable_reason
 
     Issue.joins(:changesets).
-      where(:changesets => { :id => changesets.select(:id) }).
+      where(:changesets => { :id => deployment_changesets.select(:changeset_id) }).
       distinct
+  end
+
+  # Resolves the commit range +from_revision..to_revision+ (RedmineDeployment::CommitRange - one recursive query)
+  # and stores its changesets (DeploymentChangeset). Once: the range of a deployment never changes. It runs in
+  # the background - ResolveDeploymentChangesetsJob right after the deployment was logged, after the repository
+  # fetched new changesets (RedmineDeployment::Patches::RepositoryGitPatch) and from the rake task
+  # redmine:deployment:resolve_changesets - never in a request.
+  #
+  # A deployment without a range (no repository, a missing boundary - see +changesets_unavailable_reason+) is
+  # resolved as "no changesets". A boundary that has not been fetched into Redmine yet, or a repository without
+  # a commit graph, leaves the deployment pending (+changesets_pending+, +changesets_error+ names the reason):
+  # it is tried again after the next fetch of the repository and by the rake task.
+  #
+  # @return [Boolean] true, if the changesets are resolved now
+  def resolve_changesets!
+    return false if new_record?
+
+    from = to = nil
+    error =
+      if repository.nil? || self.class.null_revision?(from_revision) || self.class.null_revision?(to_revision)
+        nil # no range at all - resolved as "nothing" (the reason is derived from the record)
+      elsif !RedmineDeployment::CommitRange.dag_available?(repository)
+        :dag_unavailable
+      else
+        from = repository.find_changeset_by_name(from_revision)
+        to   = repository.find_changeset_by_name(to_revision)
+        :revision_not_found unless from && to
+      end
+
+    if error
+      transaction do
+        deployment_changesets.delete_all
+        update_columns(:changesets_resolved_at => nil, :changesets_error => error.to_s)
+      end
+      return false
+    end
+
+    store_changesets(from && to ? RedmineDeployment::CommitRange.ids(to.id, from.id) : [])
+    true
   end
 
   private
 
-  # Ids of the changesets in this deployment's +from..to+ range, memoized so the (expensive) DAG
-  # walk runs at most once per instance even when +changesets+/+related_issues+ are both called
-  # in a single request (e.g. the deployment show page).
-  def changeset_range_ids
-    return @changeset_range_ids if defined?(@changeset_range_ids)
-
-    @changeset_range_ids = commit_range_ids(resolved_from_changeset, resolved_to_changeset)
+  def resolve_changesets_later
+    ResolveDeploymentChangesetsJob.perform_later(id)
   end
 
-  def resolved_from_changeset
-    return @resolved_from_changeset if defined?(@resolved_from_changeset)
-
-    @resolved_from_changeset =
-      self.class.null_revision?(from_revision) ? nil : repository.find_changeset_by_name(from_revision)
-  end
-
-  def resolved_to_changeset
-    return @resolved_to_changeset if defined?(@resolved_to_changeset)
-
-    @resolved_to_changeset =
-      self.class.null_revision?(to_revision) ? nil : repository.find_changeset_by_name(to_revision)
-  end
-
-  # True when the parent DAG is usable for this repository: a git repository whose
-  # +changeset_parents+ edges have actually been populated.
-  def dag_available?
-    return @dag_available if defined?(@dag_available)
-
-    @dag_available =
-      repository.is_a?(Repository::Git) &&
-      ChangesetParent.where(:changeset_id => repository.changesets.select(:id)).exists?
-  end
-
-  # Ids of the commits in the range +from_changeset..to_changeset+ (inclusive of +to+,
-  # exclusive of +from+ and its ancestors). Walks up the parent DAG from +to+, pruning the
-  # cone of ancestors of +from+.
-  def commit_range_ids(from_changeset, to_changeset)
-    # Both boundaries required - see +changesets+. Without +from+ the walk below would run all
-    # the way to the root commit and return the whole repository history.
-    return [] unless from_changeset && to_changeset
-
-    excluded = ancestor_ids([from_changeset.id])
-    result   = Set.new
-    visited  = Set.new([to_changeset.id])
-    frontier = [to_changeset.id]
-
-    while frontier.any? && result.size < MAX_TRAVERSAL
-      frontier.each { |id| result << id unless excluded.include?(id) }
-      parent_ids = parent_ids_for(frontier)
-      frontier = parent_ids.reject { |pid| visited.include?(pid) || excluded.include?(pid) }
-      visited.merge(frontier)
+  def store_changesets(changeset_ids)
+    rows = changeset_ids.map { |changeset_id| { :deployment_id => id, :changeset_id => changeset_id } }
+    transaction do
+      deployment_changesets.delete_all
+      DeploymentChangeset.insert_all(rows) if rows.any?
+      update_columns(:changesets_resolved_at => Time.now, :changesets_error => nil)
     end
-
-    warn_traversal_cap('commit_range_ids') if result.size >= MAX_TRAVERSAL
-    result.to_a
-  end
-
-  # All ancestor ids of the given seeds, inclusive of the seeds themselves.
-  def ancestor_ids(seed_ids)
-    visited  = Set.new(seed_ids)
-    frontier = seed_ids
-
-    while frontier.any? && visited.size < MAX_TRAVERSAL
-      parent_ids = parent_ids_for(frontier)
-      frontier = parent_ids.reject { |pid| visited.include?(pid) }
-      visited.merge(frontier)
-    end
-
-    warn_traversal_cap('ancestor_ids') if visited.size >= MAX_TRAVERSAL
-    visited
-  end
-
-  def parent_ids_for(changeset_ids)
-    return [] if changeset_ids.empty?
-
-    ChangesetParent.where(:changeset_id => changeset_ids).distinct.pluck(:parent_id)
-  end
-
-  def warn_traversal_cap(context)
-    Rails.logger.warn(
-      "Deployment##{id}: #{context} hit MAX_TRAVERSAL (#{MAX_TRAVERSAL}); " \
-      'changeset range may be incomplete.'
-    )
   end
 end

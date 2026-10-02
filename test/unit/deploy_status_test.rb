@@ -139,21 +139,45 @@ class DeployStatusTest < ActiveSupport::TestCase
     assert_equal %i[none reached], status[Issue.find(2)].environments.map(&:state)
   end
 
-  def test_deployments_before_the_commits_are_not_loaded
+  # the changesets of the deployments are stored (DeploymentChangeset) - the status reads them, it never computes a
+  # commit range of a deployment, however many deployments the repository has
+  def test_deployment_ranges_are_not_computed
     link(Issue.find(1), @c4)
     deploy('production', from: @c0, to: @c1, created_on: 30.days.ago)
     deploy('production', from: @c3, to: @c5)
 
-    status   = status_for(Issue.find(1))
-    computed = []
-    status.define_singleton_method(:range_ids) do |to_id, from_id, &block|
-      computed << to_id
-      super(to_id, from_id, &block)
-    end
+    queries = status_queries { |status| assert_equal %i[none reached], status[Issue.find(1)].environments.map(&:state) }
 
-    assert_equal %i[none reached], status[Issue.find(1)].environments.map(&:state)
-    # only the range of the recent deployment (to: c5) is computed, not the one of the old deployment (to: c1)
-    assert_equal [@c5.id], computed
+    # ten times the deployments: not a single query more (the links of the changesets and the deployments at once)
+    10.times { |i| deploy('production', from: @c0, to: @c1, created_on: (31 + i).days.ago) }
+    10.times { deploy('production', from: @c3, to: @c5) }
+    scaled = status_queries { |status| assert_equal %i[none reached], status[Issue.find(1)].environments.map(&:state) }
+
+    assert_operator scaled, :<=, queries, "#{scaled} queries for 22 deployments, #{queries} for 2"
+  end
+
+  # the queries of the deploy status of issue 1 - and not a single commit range computed meanwhile
+  def status_queries
+    RedmineDeployment::CommitRange.stubs(:ids).raises('a commit range was computed for the deploy status')
+    status = status_for(Issue.find(1))
+    count_queries { yield status }
+  ensure
+    RedmineDeployment::CommitRange.unstub(:ids)
+  end
+
+  # Logged before its commits were fetched into Redmine, a deployment stays pending and covers nothing until it is
+  # resolved (after the fetch of the repository, or by the rake task)
+  def test_unresolved_deployment_covers_nothing_until_it_is_resolved
+    link(Issue.find(1), @c5)
+    deployment = deploy('production', from: @c4, to: 'c6')
+    assert_equal :revision_not_found, deployment.changesets_unavailable_reason
+
+    assert_equal %i[none none], status_for(Issue.find(1))[Issue.find(1)].environments.map(&:state)
+
+    commit('c6', [@c5], 5.days.ago)
+    deployment.resolve_changesets!
+
+    assert_equal %i[none reached], status_for(Issue.find(1))[Issue.find(1)].environments.map(&:state)
   end
 
   def test_range_ids_equal_deployment_changesets
@@ -171,7 +195,7 @@ class DeployStatusTest < ActiveSupport::TestCase
     deployments.each do |deployment|
       revisions = [@repository.find_changeset_by_name(deployment.to_revision), @repository.find_changeset_by_name(deployment.from_revision)]
       expected  = deployment.changesets.pluck(:id).sort
-      actual    = service.send(:range_ids, revisions[0].id, revisions[1].id) { flunk 'no fallback expected' }.sort
+      actual    = service.send(:range_ids, revisions[0].id, revisions[1].id).sort
 
       assert_equal expected, actual, "range of #{deployment.from_revision}..#{deployment.to_revision}"
     end
@@ -480,6 +504,18 @@ deployment | production | Live" }
                                     environment: environment, result: result,
                                     from_revision: revision.call(from), to_revision: revision.call(to))
     deployment.update_columns(created_on: created_on) if created_on
-    deployment
+    # the changesets are resolved by ResolveDeploymentChangesetsJob (inline here) on another instance
+    deployment.reload
+  end
+
+  def count_queries
+    count = 0
+    subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+      count += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name])
+    end
+    yield
+    count
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber)
   end
 end

@@ -13,7 +13,8 @@ en:
   label_deployment_statistics: Deployment statistics
   label_deployments_per_month: Successful deployments per month
   label_deployments_per_author: Successful deployments per author
-  label_deployment_changesets_revision_not_found: One of this deployment's revisions has not been fetched into Redmine yet, so the related changesets cannot be determined.
+  label_deployment_changesets_revision_not_found: One of this deployment's revisions has not been fetched into Redmine yet, so the related changesets cannot be determined. They are resolved automatically once the repository has fetched it.
+  label_deployment_changesets_not_resolved: The changesets of this deployment have not been resolved yet. This happens in the background right after the deployment is logged and after the repository fetched new changesets - or by the rake task redmine:deployment:resolve_changesets.
   label_deployment_changesets_incomplete_range: This deployment is missing its start or end revision. Without both revisions there is no commit range, so no changesets and no issues are shown.
   label_deployment_changesets_dag_unavailable: The commit history for this repository is not available, so the related changesets cannot be determined.
   label_deployment_changesets_no_repository: No repository is associated with this deployment.

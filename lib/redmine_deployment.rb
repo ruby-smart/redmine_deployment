@@ -3,6 +3,7 @@ base_path = File.dirname(__FILE__)
 %w[
 redmine_deployment/patches/project_patch
 redmine_deployment/patches/repository_patch
+redmine_deployment/patches/repository_git_patch
 redmine_deployment/patches/changeset_patch
 redmine_deployment/patches/issue_patch
 redmine_deployment/patches/application_helper_patch

@@ -14,6 +14,13 @@ class DeploymentsController < ApplicationController
 
   accept_api_auth :index, :show, :create
 
+  # The colors of the environments in the statistics graphs: one fixed list of distinct colors, assigned per
+  # environment of the project (see +environment_colors+) - so an environment keeps its color in every graph and
+  # legend, whatever subset of environments a graph happens to show.
+  ENVIRONMENT_COLORS = %w[
+    #36a2eb #ff6384 #ffce56 #4bc0c0 #9966ff #ff9f40 #2ecc71 #8d6e63 #1e4e79 #c0392b #7f8c8d #8a9a1b
+  ].freeze
+
   def index
     retrieve_query
     sort_init(@query.sort_criteria.empty? ? [['created_on', 'desc']] : @query.sort_criteria)
@@ -143,6 +150,16 @@ class DeploymentsController < ApplicationController
     deployments.map {|d| environment_label(d.environment)}.uniq.sort
   end
 
+  # The color of every environment of the project - all environments of its successful deployments, alphabetically,
+  # colored by ENVIRONMENT_COLORS in that order. The same map serves every graph, so an environment keeps its color
+  # whether or not the other environments show up in a graph.
+  #
+  # @return [Hash{String => String}] color by environment label (see +environment_label+)
+  def environment_colors(project)
+    labels = successful_deployments(project).distinct.pluck(:environment).map {|env| environment_label(env)}.uniq.sort
+    labels.each_with_index.to_h {|label, index| [label, ENVIRONMENT_COLORS[index % ENVIRONMENT_COLORS.size]]}
+  end
+
   # Number of successful deployments per month (last 12 months), one dataset per environment.
   # Mirrors RepositoriesController#graph_commits_per_month.
   def graph_deployments_per_month(project)
@@ -156,6 +173,7 @@ class DeploymentsController < ApplicationController
     labels = []
     12.times {|m| labels << month_name(((date_to.month - 1 - m) % 12) + 1)}
 
+    colors   = environment_colors(project)
     datasets = environment_labels(deployments).map do |env|
       counts = [0] * 12
       deployments.each do |d|
@@ -163,7 +181,7 @@ class DeploymentsController < ApplicationController
 
         counts[(date_to.month - d.created_on.to_date.month) % 12] += 1
       end
-      {:name => env, :data => counts.reverse}
+      {:name => env, :color => colors[env], :data => counts.reverse}
     end
 
     {:labels => labels.reverse, :datasets => datasets}
@@ -177,11 +195,12 @@ class DeploymentsController < ApplicationController
     authors = deployments.map(&:author).compact.uniq.
       sort_by {|a| -deployments.count {|d| d.author_id == a.id}}.first(10)
 
+    colors   = environment_colors(project)
     datasets = environment_labels(deployments).map do |env|
       data = authors.map do |author|
         deployments.count {|d| d.author_id == author.id && environment_label(d.environment) == env}
       end
-      {:name => env, :data => data.reverse}
+      {:name => env, :color => colors[env], :data => data.reverse}
     end
 
     {:labels => authors.map(&:name).reverse, :datasets => datasets}

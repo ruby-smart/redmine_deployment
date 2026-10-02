@@ -53,14 +53,32 @@ class IssueDeploymentsTest < ActiveSupport::TestCase
     assert_empty @issue.deployments
   end
 
-  def test_issue_deployments_excludes_deployments_created_before_the_issue
+  # The deployments are found by their stored changesets (DeploymentChangeset): one indexed query, no walk over
+  # the commit graph per candidate deployment - however many deployments the repository has.
+  def test_issue_deployments_is_a_single_query
     @issue.changesets << @c
-    # Range contains the issue's changeset, but the deploy happened before the issue existed,
-    # so it cannot actually have deployed this issue's work and is pruned without a DAG walk.
-    create_deployment(:from_revision => @a.revision, :to_revision => @d.revision,
-                      :created_on => @issue.created_on - 1.hour)
+    5.times { create_deployment(:from_revision => @a.revision, :to_revision => @d.revision) }
+    5.times { create_deployment(:from_revision => @c.revision, :to_revision => @d.revision) }
+    RedmineDeployment::CommitRange.expects(:ids).never
 
+    queries = count_queries { assert_equal 5, @issue.deployments.to_a.size }
+
+    assert_equal 1, queries
+  end
+
+  # Logged before Redmine fetched its commits (the usual order of events): the deployment is listed as soon as it
+  # is resolved - after the fetch, or by the rake task.
+  def test_issue_deployments_includes_a_deployment_resolved_later
+    deployment = create_deployment(:from_revision => @c.revision, :to_revision => 'e')
     assert_empty @issue.deployments
+
+    e = create_changeset('e', 5.minutes.ago, [@d])
+    @issue.changesets << e
+    assert_empty @issue.deployments, 'not resolved yet'
+
+    deployment.resolve_changesets!
+
+    assert_equal [deployment.id], @issue.deployments.map(&:id)
   end
 
   def test_issue_deployments_orders_newest_first
@@ -93,5 +111,16 @@ class IssueDeploymentsTest < ActiveSupport::TestCase
       :author     => @user,
       :result     => Deployment::RESULT_SUCCESS
     }.merge(attrs))
+  end
+
+  def count_queries
+    count = 0
+    subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+      count += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name])
+    end
+    yield
+    count
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber)
   end
 end

@@ -58,10 +58,10 @@ A plugin for repository deployments
   * managed as a table: centrally in the plugin settings _(Administration » Plugins)_ and overridable per project _(project settings, tab "Deployment", permission "Edit deployment settings")_ - both are stored in the plugin settings _(`DeploymentSetting`, like redmine_contacts: `environments` and `projects` => `{ <project id> => { custom, environments } }`)_
   * "Code" is the static first step - only its label and color can be changed; the other steps are sortable by drag & drop
   * type "Branch": reached, if the commits are merged into the branch of the repository _(ancestors of the branch head, which has to be fetched into Redmine)_
-  * type "Deployment": reached by a successful deployment of the environment _(its commit range, like `git log from..to` - a deployment needs **both** revisions, one alone is no range and covers nothing)_
+  * type "Deployment": reached by a successful deployment of the environment _(its commit range, like `git log from..to` - a deployment needs **both** revisions, one alone is no range and covers nothing; the changesets of a deployment are stored, see "Changesets of a deployment" below)_
   * dynamic values, resolved per issue: `*` matches any characters _(e.g. `feature/*` - merged into any feature branch)_, placeholders `{%object.attribute%}` insert issue attributes _(e.g. `feature/{%issue.id%}-*`, `review-{%tracker.name%}`; objects: `issue`, `tracker`, `project`, `status`, `priority`, `category`, `version`, `author`, `assigned_to` - attributes: their columns, users only `id`, `login`, `firstname`, `lastname`, `name`)_. Dynamic values match case-insensitively, a placeholder without a value _(e.g. no assignee)_ makes the step unreachable for that issue; the popup shows the resolved value
   * stored as text, one step per line: `code | | label | color` and `type | value | label | color` _(color: 12 names or `#rrggbb`, default by position - the last environment is green)_, every row is checked by the pattern of the parser
-  * shown on the issue page _(right of the subject: indicator and badge - with the permission "View indicator / badge")_ and available for other plugins: `RedmineDeployment::DeployStatus` _(all issues at once, the commit ranges are computed by a recursive SQL query and cached)_ and the central render methods of `DeploymentStatusHelper` _(e.g. the SCRUM taskboard of RI-Customizations)_:
+  * shown on the issue page _(right of the subject: indicator and badge - with the permission "View indicator / badge")_ and available for other plugins: `RedmineDeployment::DeployStatus` _(all issues at once by indexed queries: the stored changesets of the deployments; the ancestors of a branch head are computed by one recursive SQL query and cached)_ and the central render methods of `DeploymentStatusHelper` _(e.g. the SCRUM taskboard of RI-Customizations)_:
     * `deployment_indicator(status)` - the segments: "Code", then every environment in its color
     * `deployment_badge(status)` - the last reached step in its color _(live filled, reached outlined, newer commits pending dashed)_
     * `deployment_pipeline(status)` - indicator and badge
@@ -84,6 +84,29 @@ A plugin for repository deployments
     rake redmine:plugins:migrate RAILS_ENV=production
     ```
 * restart server
+* resolve the changesets of the existing deployments once _(update from a version before 1.4 - see below)_
+    ```
+    rake redmine:deployment:resolve_changesets RAILS_ENV=production
+    ```
+
+------------------------------------
+
+## Changesets of a deployment
+
+The changesets of a deployment - its commit range `from_revision..to_revision`, like `git log from..to` over the commit graph Redmine stores in `changeset_parents` - are **resolved once and stored** (`deployment_changesets`). Every page that asks for them is an indexed lookup, whatever the size of the repository history or the number of deployments: the "Deployment" tab of an issue, the issues and revisions of a deployment, the deploy status (indicator, badge, pipeline, SCRUM taskboard). Nothing walks the commit graph in a request, and nothing is cached that could expire.
+
+A deployment is resolved
+* **in the background right after it is logged** _(`ResolveDeploymentChangesetsJob`, ActiveJob - the deploy process never waits for it; Redmine's default queue adapter runs the job in the server process)_,
+* **after the repository fetched new changesets** _(the usual order of events: the deploy hook logs the deployment before Redmine has fetched the deployed commits - the deployment stays pending, with "revision not fetched yet" on its page, and is resolved by the fetch: repository page, `sys/fetch_changesets`, `rake redmine:fetch_changesets`)_,
+* **by the rake task** - the pending ones by default, all of them with `FORCE=1`:
+    ```
+    rake redmine:deployment:resolve_changesets RAILS_ENV=production
+    rake redmine:deployment:resolve_changesets PROJECT=identifier FORCE=1 RAILS_ENV=production
+    rake redmine:deployment:resolve_changesets DEPLOYMENT=42 RAILS_ENV=production
+    ```
+    Run it once after the update to 1.4 _(the backfill of the existing deployments - one recursive query per deployment, about 15 ms each on MySQL 8 for a history of 17,000 commits)_ and, as a safety net, by cron after `redmine:fetch_changesets`.
+
+Resolving a deployment runs **one recursive SQL query** (`RedmineDeployment::CommitRange` - MySQL 8 / MariaDB, PostgreSQL, SQLite); on a database without recursive CTEs it falls back to a walk over the graph in Ruby, which is slow but still runs in the background only. A deployment without both revisions has no range and no changesets. When a repository is reloaded, its deployments are set back to pending and resolved again after the fetch.
 
 ------------------------------------
 
