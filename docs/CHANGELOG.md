@@ -1,25 +1,25 @@
 # redmine deployment - CHANGELOG
 
-## unreleased
-* **[fix]** a deployment without both revisions could make its detail page never finish loading — a missing (or not yet fetched) `from_revision` was read as "since the root commit", so the deployment claimed the *entire* repository history: every changeset and every issue ever referenced, rendered unpaginated. `Deployment#changesets` now requires **both** boundaries and returns nothing without them
-* **[fix]** an all-zero revision — Git's null revision, as deploy hooks send it (`0000000000000000000000000000000000000000`, often abbreviated to `000000`) — counts as "no revision" instead of being resolved against the repository, where `Repository::Git#find_changeset_by_name`'s `scmid LIKE "<name>%"` prefix match could hit an arbitrary commit whose id starts with zeros and produce a bogus range _(`Deployment.null_revision?`, applied to the range, the deploy status and the revision links)_
-* **[fix]** the same open-ended range made `RedmineDeployment::DeployStatus` mark every issue of a repository as deployed — deployments without a resolvable `from_revision` are now skipped for the deploy indicator / badge too _(the branch steps keep their "merged into this head" semantics)_
+## 2026-10-02 v1.3.0
 * **[add]** `changesets_unavailable_reason` value `:incomplete_range` with an explanatory notice _(en + de)_, and the issue tab of the detail page now shows the reason as well _(previously only the revisions tab did)_
-* **[ref]** revision range of a deployment without a `from_revision` is displayed as `? ... <rev>` instead of `000000 ... <rev>`, which suggested "since the beginning"
 * **[add]** deployment pipeline: dynamic values - wildcards (`feature/*`) and issue placeholders (`{%issue.id%}`, `{%tracker.name%}`, ...), resolved per issue
 * **[add]** permission **"Indikator / Badge ansehen"** _(`view_deployment_indicator`)_ for the deploy status on the issue page and in issue lists
-* **[ref]** permission `manage_deployment_settings` renamed to **"Deployment Einstellungen anpassen"**
 * **[add]** project setting **"Indikator anzeigen"** - the deploy status on the issue page is off by default
 * **[add]** the pipeline popup names its issue _("Deployment-Pipeline - #42")_
-* **[fix]** failed deployments no longer count towards the deploy status
 * **[add]** a click on the deploy status opens the whole pipeline of the project as a popup _(replaces the tooltip)_
-* **[ref]** issue tab renamed to **"Deployment"**
-* **[ref]** issue query column "Deploy-Badge" renamed to **"Deployment"**
 * **[add]** `deployment_badge(status, short: true)` - the first letter of the step only
 * **[add]** configurable deployment pipeline: "Code", followed by branch and deployment steps with colors - central in the plugin settings, overridable per project
 * **[add]** deploy status of issues (`RedmineDeployment::DeployStatus`), resolved for many issues at once and cached
 * **[add]** issue query columns "Deploy indicator" and "Deploy badge"
 * **[add]** deploy status on the issue page and `DeploymentStatusHelper` for other plugins _(taken over from RI-Customizations)_
+* **[ref]** revision range of a deployment without a `from_revision` is displayed as `? ... <rev>` instead of `000000 ... <rev>`, which suggested "since the beginning"
+* **[ref]** permission `manage_deployment_settings` renamed to **"Deployment Einstellungen anpassen"**
+* **[ref]** issue tab renamed to **"Deployment"**
+* **[ref]** issue query column "Deploy-Badge" renamed to **"Deployment"**
+* **[fix]** a deployment without both revisions could make its detail page never finish loading — a missing (or not yet fetched) `from_revision` was read as "since the root commit", so the deployment claimed the *entire* repository history: every changeset and every issue ever referenced, rendered unpaginated. `Deployment#changesets` now requires **both** boundaries and returns nothing without them
+* **[fix]** an all-zero revision — Git's null revision, as deploy hooks send it (`0000000000000000000000000000000000000000`, often abbreviated to `000000`) — counts as "no revision" instead of being resolved against the repository, where `Repository::Git#find_changeset_by_name`'s `scmid LIKE "<name>%"` prefix match could hit an arbitrary commit whose id starts with zeros and produce a bogus range _(`Deployment.null_revision?`, applied to the range, the deploy status and the revision links)_
+* **[fix]** the same open-ended range made `RedmineDeployment::DeployStatus` mark every issue of a repository as deployed — deployments without a resolvable `from_revision` are now skipped for the deploy indicator / badge too _(the branch steps keep their "merged into this head" semantics)_
+* **[fix]** failed deployments no longer count towards the deploy status
 
 ## 2026-07-08 v1.2.2
 * **[fix]** deployment↔issue matching could take >60s — `Issue#deployments` now prunes candidate deployments by `created_on` _(after the issue was created, at or before now)_ before running the per-candidate commit-DAG membership check, so the expensive walk runs on only a handful of deployments instead of every deployment on the repository
