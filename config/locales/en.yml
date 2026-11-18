@@ -40,7 +40,7 @@ en:
   text_deployment_respect_start_date: "The deployment pipeline of an issue and its tab \"Deployment\" count only the commits made on or after its start date (from midnight in the time zone of the user) - older commits referencing the issue are ignored. Issues without a start date count all commits."
   label_deployment_issue_indicator: Show the indicator
   text_deployment_issue_indicator: "Show the indicator on the issue page"
-  text_deployment_environments_custom: "The project defines its own deployment pipeline. Unchecked: the central deployment pipeline (Administration » Plugins » Redmine Deployment plugin)."
+  text_deployment_environments_custom: "The project defines its own deployment pipeline. Unchecked: the central deployment pipeline (Administration » Plugins » RubySmart Deployment plugin)."
   text_deployment_environments_html: |-
     <b>Code</b>: reached as soon as a revision is linked to the issue.
     <b>Branch</b>: reached, if the commits are merged into the branch, e.g. <code>develop</code>.

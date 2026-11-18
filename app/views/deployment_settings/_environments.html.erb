@@ -1,18 +1,18 @@
 <%# The deployment pipeline as table (deployment_environments.js): the static step "Code", then the environments -
     saved as text, one line per row in the order of the table (hidden field +field_name+): "code | | <label> | <color>"
     and "<type> | <value> | <label> | <color>", every row is checked with the pattern of the parser
-    (RedmineDeployment::Environments::PATTERN), a regular expression as value ("/.../") must compile.
+    (RubysmartDeployment::Environments::PATTERN), a regular expression as value ("/.../") must compile.
     locals: field_name, code, environments, disabled (read-only, e.g. the central pipeline of a project) %>
 <% disabled = local_assigns[:disabled] %>
 <div class="deployment-environments<%= ' deployment-environments-disabled' if disabled %>">
   <label><%= l(:label_deployment_environments) %></label>
-  <%= hidden_field_tag field_name, RedmineDeployment::Environments.text(code, environments),
+  <%= hidden_field_tag field_name, RubysmartDeployment::Environments.text(code, environments),
                        id: nil, class: 'deployment-environments-field', disabled: disabled,
-                       data: { pattern: RedmineDeployment::Environments::PATTERN,
-                               regexp: RedmineDeployment::Environments::REGEXP_PATTERN,
-                               placeholder: RedmineDeployment::Environments::PLACEHOLDER.source,
+                       data: { pattern: RubysmartDeployment::Environments::PATTERN,
+                               regexp: RubysmartDeployment::Environments::REGEXP_PATTERN,
+                               placeholder: RubysmartDeployment::Environments::PLACEHOLDER.source,
                                message: l(:text_deployment_environments_invalid, lines: '%{lines}'),
-                               colors: RedmineDeployment::Environments::DEFAULT_COLORS.map { |name| RedmineDeployment::Environments::COLORS[name] } } %>
+                               colors: RubysmartDeployment::Environments::DEFAULT_COLORS.map { |name| RubysmartDeployment::Environments::COLORS[name] } } %>
   <table class="list deployment-environments-table">
     <thead>
       <tr>
@@ -30,10 +30,10 @@
     </tbody>
   </table>
   <template class="deployment-environment-template">
-    <%= render partial: 'deployment_settings/environment', locals: { environment: RedmineDeployment::Environments::Environment.new('deployment', '', '', nil) } %>
+    <%= render partial: 'deployment_settings/environment', locals: { environment: RubysmartDeployment::Environments::Environment.new('deployment', '', '', nil) } %>
   </template>
   <p class="deployment-environments-empty"<%= ' style="display: none;"'.html_safe if environments.any? %>><%= l(:text_deployment_environments_empty) %></p>
-  <a href="#" class="icon icon-add deployment-environment-add"><%= l(:label_deployment_environment_add) %></a>
+  <%= link_to sprite_icon('add', l(:label_deployment_environment_add)), '#', class: 'icon icon-add deployment-environment-add' %>
   <span class="deployment-environments-error" style="display: none;"></span>
   <%# the help: paragraphs (separated by an empty line) of lines - HTML of the locales %>
   <em class="info deployment-environments-help">
@@ -44,5 +44,5 @@
 </div>
 
 <% content_for :header_tags do %>
-  <%= javascript_include_tag 'deployment_environments', plugin: 'redmine_deployment' %>
+  <%= javascript_include_tag 'deployment_environments', plugin: 'rubysmart_deployment' %>
 <% end %>

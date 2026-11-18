@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module RedmineDeployment
+module RubysmartDeployment
   # The commit range of a deployment: the ids of the changesets reachable from +to+ by following the parent graph
   # (+changeset_parents+) minus the ones reachable from +from+ - <tt>git log from..to</tt>, exclusive of +from+,
   # inclusive of +to+. Without +from+ it is "all ancestors of +to+": the "merged into this branch head" question
@@ -31,7 +31,7 @@ module RedmineDeployment
 
       sql_ids(to_id, from_id)
     rescue ActiveRecord::StatementInvalid => e
-      Rails.logger.warn("RedmineDeployment::CommitRange: #{e.message} - walking the commit graph in Ruby instead")
+      Rails.logger.warn("RubysmartDeployment::CommitRange: #{e.message} - walking the commit graph in Ruby instead")
       walk_ids(to_id, from_id)
     end
 
@@ -47,7 +47,7 @@ module RedmineDeployment
 
       sql_ancestors(head_ids)
     rescue ActiveRecord::StatementInvalid => e
-      Rails.logger.warn("RedmineDeployment::CommitRange: #{e.message} - walking the commit graph in Ruby instead")
+      Rails.logger.warn("RubysmartDeployment::CommitRange: #{e.message} - walking the commit graph in Ruby instead")
       walk_ancestors(head_ids).to_a
     end
 
@@ -154,7 +154,7 @@ module RedmineDeployment
 
     def warn_traversal_cap(changeset_id, context)
       Rails.logger.warn(
-        "RedmineDeployment::CommitRange: #{context} of changeset #{changeset_id} hit MAX_TRAVERSAL " \
+        "RubysmartDeployment::CommitRange: #{context} of changeset #{changeset_id} hit MAX_TRAVERSAL " \
         "(#{MAX_TRAVERSAL}); the range may be incomplete."
       )
     end

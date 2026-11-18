@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module RedmineDeployment
+module RubysmartDeployment
   module Patches
     # A deployment is usually logged before its revisions are fetched into Redmine (the deploy hook reports it right
     # after the push), so its changesets can't be resolved at once (Deployment#resolve_changesets! leaves it
@@ -10,7 +10,7 @@ module RedmineDeployment
     #
     # Prepended (not alias-chained): +save_revisions+ is private.
     #
-    # +tag_revisions+: the commits of the tags (the pipeline steps "tag", see RedmineDeployment::DeployStatus).
+    # +tag_revisions+: the commits of the tags (the pipeline steps "tag", see RubysmartDeployment::DeployStatus).
     module RepositoryGitPatch
       # one line per tag: its object, the commit of an annotated tag (empty for a lightweight one) and its name
       TAG_FORMAT = '%(objectname) %(*objectname) %(refname)'
@@ -49,12 +49,12 @@ module RedmineDeployment
       def resolve_pending_deployment_changesets
         Deployment.where(:repository_id => id).changesets_pending.find_each(&:resolve_changesets!)
       rescue StandardError => e
-        Rails.logger.error("RedmineDeployment: resolving the pending deployments of repository #{id} failed: #{e.message}")
+        Rails.logger.error("RubysmartDeployment: resolving the pending deployments of repository #{id} failed: #{e.message}")
       end
     end
   end
 end
 
-unless Repository::Git.ancestors.include?(RedmineDeployment::Patches::RepositoryGitPatch)
-  Repository::Git.prepend(RedmineDeployment::Patches::RepositoryGitPatch)
+unless Repository::Git.ancestors.include?(RubysmartDeployment::Patches::RepositoryGitPatch)
+  Repository::Git.prepend(RubysmartDeployment::Patches::RepositoryGitPatch)
 end

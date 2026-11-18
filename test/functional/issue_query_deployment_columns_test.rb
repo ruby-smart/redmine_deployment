@@ -2,7 +2,7 @@
 
 require File.expand_path('../test_helper', __dir__)
 
-# the columns "deploy indicator" and "deploy badge" of issue queries (RedmineDeployment::Patches::IssueQueryPatch)
+# the columns "deploy indicator" and "deploy badge" of issue queries (RubysmartDeployment::Patches::IssueQueryPatch)
 class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
   tests IssuesController
 
@@ -14,7 +14,7 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
   def setup
     Rails.cache.clear
     Setting.clear_cache
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging | purple\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | staging | Staging | purple\ndeployment | production | Live" }
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment')
     Role.find(1).add_permission!(:view_deployment_indicator)
@@ -56,9 +56,9 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
   end
 
   def test_index_should_load_the_deploy_statuses_at_once
-    deploy = RedmineDeployment::DeployStatus.new(Issue.where(project_id: [1, 3, 5]).to_a, user: User.find(2),
+    deploy = RubysmartDeployment::DeployStatus.new(Issue.where(project_id: [1, 3, 5]).to_a, user: User.find(2),
                                                  permission: :view_deployment_indicator)
-    RedmineDeployment::DeployStatus.expects(:new).once.returns(deploy)
+    RubysmartDeployment::DeployStatus.expects(:new).once.returns(deploy)
 
     get :index, params: { project_id: 'ecookbook', set_filter: 1, c: COLUMNS }
 
@@ -67,7 +67,7 @@ class IssueQueryDeploymentColumnsTest < Redmine::ControllerTest
   end
 
   def test_index_without_the_deploy_columns_should_not_load_the_deploy_statuses
-    RedmineDeployment::DeployStatus.expects(:new).never
+    RubysmartDeployment::DeployStatus.expects(:new).never
 
     get :index, params: { project_id: 'ecookbook', set_filter: 1, c: %w[subject] }
 

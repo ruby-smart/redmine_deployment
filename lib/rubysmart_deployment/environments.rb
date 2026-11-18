@@ -2,7 +2,7 @@
 
 require 'timeout'
 
-module RedmineDeployment
+module RubysmartDeployment
   # The deployment pipeline (e.g. the deploy status of an issue): "Code" (the changesets of the issue - a static step,
   # only its label and color can be changed), followed by the deploy environments.
   #
@@ -164,7 +164,7 @@ module RedmineDeployment
         return if @warned
 
         @warned = true
-        Rails.logger.warn("RedmineDeployment::Environments: the regular expressions of the pipeline took more than " \
+        Rails.logger.warn("RubysmartDeployment::Environments: the regular expressions of the pipeline took more than " \
                           "#{REGEXP_BUDGET}s (#{target.text}) - they match nothing for the rest of the request")
       end
     end

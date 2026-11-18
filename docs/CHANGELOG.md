@@ -1,4 +1,15 @@
-# redmine deployment - CHANGELOG
+# rubysmart_deployment plugin - CHANGELOG
+
+## 2026-11-18 v1.6.0
+* **[ref]** Redmine 7.0 _(Rails 8.1)_ compatibility; now requires **Redmine 6.0** or higher
+* **[fix]** core patches are **prepended** instead of `alias_method`-chained - the RedmineUP plugins prepend the same methods, and the alias chain recursed endlessly _(`stack level too deep` on issue lists and pages)_
+* **[fix]** `DeploymentStatusHelper` and the view helpers come with the prepended patches, so views and CSV export reach them again _(`undefined method 'link_to_deployment_revisions'`)_
+* **[fix]** deploy steps with placeholders: `ActiveRecord::Associations::Preloader` takes keyword arguments since Rails 7
+* **[fix]** statistics: the graphs stayed empty - Chart.js is loaded as ES module by `import('chart.js')`, scales are named `x` / `y` so Chart.js 4 draws no extra empty axes
+* **[ref]** **SVG sprite icons** _(Redmine 6+)_ instead of the old icon classes - Redmine's core sprite plus an own `overview` icon _(`assets/images/icons.svg`)_
+* **[ref]** `Issue#deployments`: the current user is looked up only with the option "Beginn des Tickets beachten" on _(one query less per call)_
+* **[ref]** plugin **renamed** to **`rubysmart_deployment`** _(directory, namespace, settings, assets; repository `redmine/rubysmart_deployment`)_ - migrate by `bin/rename_plugin_ids` before `redmine:plugins:migrate`; rake task and tables keep their names
+* **[test]** `ResolveDeploymentChangesetsJobTest` sets ActiveJob's test adapter explicitly - since Rails 7.2 the inline adapter of the test environment is kept
 
 ## 2026-11-18 v1.5.0
 * **[add]** pipeline step type **"Tag"**: reached, if the commits are part of a matching tag _(e.g. `tag | /^v\d+\./ | Release`; read by `git for-each-ref`, annotated tags dereferenced)_

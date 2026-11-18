@@ -28,48 +28,55 @@ function deploymentDatasets(data){
   });
 }
 
-$(document).ready(function(){
-  $.getJSON(<%= raw url_for(:controller => 'deployments', :action => 'graph',
-    :project_id => @project, :graph => "deployments_per_month").to_json %>, function(data){
+// Redmine 7 ships Chart.js as an ES module behind the importmap ("chart.js"), up to Redmine 6 it was the global Chart
+var deploymentChartJs;
+function deploymentLoadChart(){
+  if (!deploymentChartJs) {
+    deploymentChartJs = window.Chart ? Promise.resolve(window.Chart)
+                                     : import('chart.js').then(function(m){ return m.default; });
+  }
+  return deploymentChartJs;
+}
 
-    new Chart(document.getElementById("deployments_per_month").getContext("2d"), {
+function deploymentChart(url, canvasId, options){
+  $.when($.getJSON(url), deploymentLoadChart()).done(function(response, Chart){
+    var data = response[0];
+    new Chart(document.getElementById(canvasId).getContext("2d"), {
       type: 'bar',
       data: {labels: data['labels'], datasets: deploymentDatasets(data)},
-      options: {
-        elements: {bar: {borderWidth: 2}},
-        responsive: true,
-        plugins: {
-          legend: {position: 'right'},
-          title: {display: true, text: <%= raw l(:label_deployments_per_month).to_json %>}
-        },
-        scales: {
-          xAxis: {stacked: true},
-          yAxis: {stacked: true, ticks: {precision: 0}}
-        }
-      }
+      options: options
     });
   });
+}
 
-  $.getJSON(<%= raw url_for(:controller => 'deployments', :action => 'graph',
-    :project_id => @project, :graph => "deployments_per_author").to_json %>, function(data){
+$(document).ready(function(){
+  deploymentChart(<%= raw url_for(:controller => 'deployments', :action => 'graph',
+    :project_id => @project, :graph => "deployments_per_month").to_json %>, "deployments_per_month", {
+    elements: {bar: {borderWidth: 2}},
+    responsive: true,
+    plugins: {
+      legend: {position: 'right'},
+      title: {display: true, text: <%= raw l(:label_deployments_per_month).to_json %>}
+    },
+    scales: {
+      x: {stacked: true},
+      y: {stacked: true, ticks: {precision: 0}}
+    }
+  });
 
-    new Chart(document.getElementById("deployments_per_author").getContext("2d"), {
-      type: 'bar',
-      data: {labels: data['labels'], datasets: deploymentDatasets(data)},
-      options: {
-        indexAxis: 'y',
-        elements: {bar: {borderWidth: 2}},
-        responsive: true,
-        plugins: {
-          legend: {position: 'right'},
-          title: {display: true, text: <%= raw l(:label_deployments_per_author).to_json %>}
-        },
-        scales: {
-          xAxis: {stacked: true, ticks: {precision: 0}},
-          yAxis: {stacked: true}
-        }
-      }
-    });
+  deploymentChart(<%= raw url_for(:controller => 'deployments', :action => 'graph',
+    :project_id => @project, :graph => "deployments_per_author").to_json %>, "deployments_per_author", {
+    indexAxis: 'y',
+    elements: {bar: {borderWidth: 2}},
+    responsive: true,
+    plugins: {
+      legend: {position: 'right'},
+      title: {display: true, text: <%= raw l(:label_deployments_per_author).to_json %>}
+    },
+    scales: {
+      x: {stacked: true, ticks: {precision: 0}},
+      y: {stacked: true}
+    }
   });
 });
 <% end %>
@@ -83,6 +90,9 @@ $(document).ready(function(){
 
 <% html_title(l(:label_deployments), l(:label_statistics)) -%>
 
-<% content_for :header_tags do %>
-  <%= javascript_include_tag "chart.min" %>
+<%# Redmine 7 serves Chart.js through the importmap, see deploymentLoadChart %>
+<% if Redmine::VERSION::MAJOR < 7 %>
+  <% content_for :header_tags do %>
+    <%= javascript_include_tag "chart.min" %>
+  <% end %>
 <% end %>

@@ -74,7 +74,7 @@ class DeploymentTest < ActiveSupport::TestCase
   # repository has.
   def test_changesets_does_not_read_the_commit_graph
     deployment = Deployment.find(create_deployment(:from_revision => @a.revision, :to_revision => @d.revision).id)
-    RedmineDeployment::CommitRange.expects(:ids).never
+    RubysmartDeployment::CommitRange.expects(:ids).never
 
     queries = count_queries do
       assert_equal [@b, @c, @d].map(&:id).sort, deployment.changesets.pluck(:id).sort

@@ -55,6 +55,22 @@ class DeploymentGraphsTest < Redmine::ControllerTest
     assert_include "ds['color']", response.body
   end
 
+  # the navigation between the list and the statistics: sprite icons - "stats" of Redmine's core sprite, "overview"
+  # of the plugin sprite (the core sprite has none)
+  def test_the_navigation_uses_sprite_icons
+    get :index, :params => { :project_id => @project.identifier }
+    assert_select 'div.contextual a.icon-stats' do
+      assert_select 'svg use[href*=?][href$=?]', '/icons-', '#icon--stats'
+      assert_select 'span.icon-label', :text => 'Statistics'
+    end
+
+    get :stats, :params => { :project_id => @project.identifier }
+    assert_select 'div.contextual a.icon-overview' do
+      assert_select 'svg use[href*=?][href$=?]', 'plugin_assets/rubysmart_deployment/icons', '#icon--overview'
+      assert_select 'span.icon-label', :text => 'Overview'
+    end
+  end
+
   private
 
   def graph(name)

@@ -2,7 +2,7 @@
  * row, only label and color), then the environments (sortable).
  * The table is saved as text: one line per row in the order of the table (hidden field) - "code | | <label> | <color>"
  * and "<type> | <value> | <label> | <color>", every line is checked with the pattern of the parser
- * (RedmineDeployment::Environments::PATTERN), a regular expression as value ("/.../", REGEXP_PATTERN) must compile -
+ * (RubysmartDeployment::Environments::PATTERN), a regular expression as value ("/.../", REGEXP_PATTERN) must compile -
  * its placeholders count as literal text.
  * Project settings: without own environments (checkbox .deployment-environments-custom) the table shows the central
  * environments read-only and is not submitted. */

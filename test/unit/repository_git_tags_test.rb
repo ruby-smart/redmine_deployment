@@ -12,7 +12,7 @@ class RepositoryGitTagsTest < ActiveSupport::TestCase
   def setup
     skip 'git is not available' unless system('git', '--version', out: File::NULL, err: File::NULL)
 
-    @dir = Dir.mktmpdir('redmine_deployment_tags')
+    @dir = Dir.mktmpdir('rubysmart_deployment_tags')
     git('init', '-q', '.')
     @repository = Repository::Git.new(project: Project.find(1), url: File.join(@dir, '.git'))
   end

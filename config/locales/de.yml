@@ -40,7 +40,7 @@ de:
   text_deployment_respect_start_date: "Die Deployment-Pipeline eines Tickets und sein Reiter „Deployment“ zählen nur Commits, die am oder nach seinem Beginn (Startdatum, ab Mitternacht in der Zeitzone des Benutzers) gemacht wurden - ältere Commits mit Bezug auf das Ticket werden ignoriert. Tickets ohne Beginn zählen alle Commits."
   label_deployment_issue_indicator: Indikator anzeigen
   text_deployment_issue_indicator: "Indikator in Ticket-Detail-Seite anzeigen"
-  text_deployment_environments_custom: "Das Projekt definiert eine eigene Deployment-Pipeline. Ohne Haken gilt die zentrale Deployment-Pipeline (Administration » Plugins » Redmine Deployment plugin)."
+  text_deployment_environments_custom: "Das Projekt definiert eine eigene Deployment-Pipeline. Ohne Haken gilt die zentrale Deployment-Pipeline (Administration » Plugins » RubySmart Deployment plugin)."
   text_deployment_environments_html: |-
     <b>Code</b>: erreicht, sobald eine Revision mit dem Ticket verknüpft ist.
     <b>Branch</b>: erreicht, wenn die Commits in den Branch gemergt sind, z. B. <code>develop</code>.

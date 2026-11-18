@@ -129,10 +129,10 @@ class Deployment < ApplicationRecord
       distinct
   end
 
-  # Resolves the commit range +from_revision..to_revision+ (RedmineDeployment::CommitRange - one recursive query)
+  # Resolves the commit range +from_revision..to_revision+ (RubysmartDeployment::CommitRange - one recursive query)
   # and stores its changesets (DeploymentChangeset). Once: the range of a deployment never changes. It runs in
   # the background - ResolveDeploymentChangesetsJob right after the deployment was logged, after the repository
-  # fetched new changesets (RedmineDeployment::Patches::RepositoryGitPatch) and from the rake task
+  # fetched new changesets (RubysmartDeployment::Patches::RepositoryGitPatch) and from the rake task
   # redmine:deployment:resolve_changesets - never in a request.
   #
   # A deployment without a range (no repository, a missing boundary - see +changesets_unavailable_reason+) is
@@ -148,7 +148,7 @@ class Deployment < ApplicationRecord
     error =
       if repository.nil? || self.class.null_revision?(from_revision) || self.class.null_revision?(to_revision)
         nil # no range at all - resolved as "nothing" (the reason is derived from the record)
-      elsif !RedmineDeployment::CommitRange.dag_available?(repository)
+      elsif !RubysmartDeployment::CommitRange.dag_available?(repository)
         :dag_unavailable
       else
         from = repository.find_changeset_by_name(from_revision)
@@ -164,7 +164,7 @@ class Deployment < ApplicationRecord
       return false
     end
 
-    store_changesets(from && to ? RedmineDeployment::CommitRange.ids(to.id, from.id) : [])
+    store_changesets(from && to ? RubysmartDeployment::CommitRange.ids(to.id, from.id) : [])
     true
   end
 

@@ -1,4 +1,4 @@
-module RedmineDeployment
+module RubysmartDeployment
   module Patches
     module RepositoryPatch
       def self.included(base) # :nodoc:
@@ -29,10 +29,10 @@ module RedmineDeployment
   end
 end
 
-unless Repository.included_modules.include?(RedmineDeployment::Patches::RepositoryPatch)
-  Repository.send(:include, RedmineDeployment::Patches::RepositoryPatch)
+unless Repository.included_modules.include?(RubysmartDeployment::Patches::RepositoryPatch)
+  Repository.send(:include, RubysmartDeployment::Patches::RepositoryPatch)
 end
 
-unless Repository.ancestors.include?(RedmineDeployment::Patches::RepositoryClearChangesetsPatch)
-  Repository.prepend(RedmineDeployment::Patches::RepositoryClearChangesetsPatch)
+unless Repository.ancestors.include?(RubysmartDeployment::Patches::RepositoryClearChangesetsPatch)
+  Repository.prepend(RubysmartDeployment::Patches::RepositoryClearChangesetsPatch)
 end

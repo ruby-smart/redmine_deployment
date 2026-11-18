@@ -1,4 +1,4 @@
-module RedmineDeployment
+module RubysmartDeployment
   module Patches
     module ChangesetPatch
       def self.included(base) # :nodoc:
@@ -30,6 +30,6 @@ module RedmineDeployment
   end
 end
 
-unless Changeset.included_modules.include?(RedmineDeployment::Patches::ChangesetPatch)
-  Changeset.send(:include, RedmineDeployment::Patches::ChangesetPatch)
+unless Changeset.included_modules.include?(RubysmartDeployment::Patches::ChangesetPatch)
+  Changeset.send(:include, RubysmartDeployment::Patches::ChangesetPatch)
 end

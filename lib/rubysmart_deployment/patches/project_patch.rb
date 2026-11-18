@@ -1,4 +1,4 @@
-module RedmineDeployment
+module RubysmartDeployment
   module Patches
     module ProjectPatch
       def self.included(base) # :nodoc:
@@ -12,6 +12,6 @@ module RedmineDeployment
   end
 end
 
-unless Project.included_modules.include?(RedmineDeployment::Patches::ProjectPatch)
-  Project.send(:include, RedmineDeployment::Patches::ProjectPatch)
+unless Project.included_modules.include?(RubysmartDeployment::Patches::ProjectPatch)
+  Project.send(:include, RubysmartDeployment::Patches::ProjectPatch)
 end

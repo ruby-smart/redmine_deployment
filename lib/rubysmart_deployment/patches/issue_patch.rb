@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module RedmineDeployment
+module RubysmartDeployment
   module Patches
     module IssuePatch
       def self.included(base) # :nodoc:
@@ -9,24 +9,24 @@ module RedmineDeployment
       end
 
       module ClassMethods
-        # Loads the deploy status of the issues at once (RedmineDeployment::DeployStatus - no N+1), e.g. for the
+        # Loads the deploy status of the issues at once (RubysmartDeployment::DeployStatus - no N+1), e.g. for the
         # deploy columns of an issue query (see IssueQueryPatch) - with the permission +view_deployment_indicator+.
         def load_deployment_statuses(issues, user = User.current)
           issues = issues.to_a
           return if issues.empty?
 
-          deploy = RedmineDeployment::DeployStatus.new(issues, user: user, permission: RedmineDeployment::DeployStatus::INDICATOR_PERMISSION)
+          deploy = RubysmartDeployment::DeployStatus.new(issues, user: user, permission: RubysmartDeployment::DeployStatus::INDICATOR_PERMISSION)
           issues.each { |issue| issue.deployment_status = deploy.enabled? ? deploy[issue] : nil }
         end
       end
 
       module InstanceMethods
-        # @return [RedmineDeployment::DeployStatus::Result, nil] the deploy status of the issue for the current user (nil:
+        # @return [RubysmartDeployment::DeployStatus::Result, nil] the deploy status of the issue for the current user (nil:
         #   no module "deployment", no permission, no environments or no changesets) - preloaded for issue lists
         def deployment_status
           return @deployment_status if defined?(@deployment_status)
 
-          deploy = RedmineDeployment::DeployStatus.new([self], permission: RedmineDeployment::DeployStatus::INDICATOR_PERMISSION)
+          deploy = RubysmartDeployment::DeployStatus.new([self], permission: RubysmartDeployment::DeployStatus::INDICATOR_PERMISSION)
           @deployment_status = deploy.enabled? ? deploy[self] : nil
         end
 
@@ -47,14 +47,15 @@ module RedmineDeployment
         # number of deployments. Ordered newest deployment first.
         #
         # With the plugin setting "respect_start_date" only the changesets committed on or after the start date of the
-        # issue count - like for its deploy status (RedmineDeployment::DeployStatus.counting_since, time zone of +user+).
-        def deployments(user = User.current)
+        # issue count - like for its deploy status (RubysmartDeployment::DeployStatus.counting_since, time zone of +user+,
+        # the current user by default).
+        def deployments(user = nil)
           changesets_issues = "#{Changeset.table_name_prefix}changesets_issues#{Changeset.table_name_suffix}"
           deploying = DeploymentChangeset.
             joins("INNER JOIN #{changesets_issues} ci ON ci.changeset_id = #{DeploymentChangeset.table_name}.changeset_id").
             where('ci.issue_id' => id).
             select(:deployment_id)
-          since = RedmineDeployment::DeployStatus.counting_since(self, user)
+          since = RubysmartDeployment::DeployStatus.counting_since(self, user)
           if since
             deploying = deploying.
               joins("INNER JOIN #{Changeset.table_name} c ON c.id = ci.changeset_id").
@@ -68,6 +69,6 @@ module RedmineDeployment
   end
 end
 
-unless Issue.included_modules.include?(RedmineDeployment::Patches::IssuePatch)
-  Issue.send(:include, RedmineDeployment::Patches::IssuePatch)
+unless Issue.included_modules.include?(RubysmartDeployment::Patches::IssuePatch)
+  Issue.send(:include, RubysmartDeployment::Patches::IssuePatch)
 end

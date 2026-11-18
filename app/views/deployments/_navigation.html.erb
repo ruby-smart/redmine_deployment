@@ -1,7 +1,8 @@
 <% if @project %>
   <% if params[:action] == 'index' %>
-    <%= link_to l(:label_statistics), statistics_project_deployments_path(@project), class: 'icon icon-stats'  %>
+    <%= link_to sprite_icon('stats', l(:label_statistics)), statistics_project_deployments_path(@project), class: 'icon icon-stats' %>
   <% else %>
-    <%= link_to l(:label_overview), project_deployments_path(@project), class: 'icon icon-report' %>
+    <%# the core sprite has no overview icon - "overview" comes from the plugin sprite (config/icon_source.yml) %>
+    <%= link_to sprite_icon('overview', l(:label_overview), plugin: :rubysmart_deployment), project_deployments_path(@project), class: 'icon icon-overview' %>
   <% end %>
 <% end %>

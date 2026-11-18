@@ -2,7 +2,7 @@
 
 require File.expand_path('../test_helper', __dir__)
 
-# the deploy status on the issue page (RedmineDeployment::Patches::IssuesHelperPatch)
+# the deploy status on the issue page (RubysmartDeployment::Patches::IssuesHelperPatch)
 class IssueDeployStatusTest < Redmine::ControllerTest
   tests IssuesController
 
@@ -12,7 +12,7 @@ class IssueDeployStatusTest < Redmine::ControllerTest
   def setup
     Rails.cache.clear
     Setting.clear_cache
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging | purple\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | staging | Staging | purple\ndeployment | production | Live" }
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment')
     Role.find(1).add_permission!(:view_deployment_indicator)
@@ -130,7 +130,7 @@ class IssueDeployStatusTest < Redmine::ControllerTest
   end
 
   def test_show_only_code_with_its_label
-    Setting.plugin_redmine_deployment = { 'environments' => "code |  | Commits | pink\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "code |  | Commits | pink\ndeployment | production | Live" }
     Deployment.where(environment: 'staging').delete_all
     Deployment.create!(project: @project, repository: @repository, author: User.find(1), environment: 'production',
                        result: Deployment::RESULT_SUCCESS, from_revision: 'c0', to_revision: 'c1')
@@ -144,7 +144,7 @@ class IssueDeployStatusTest < Redmine::ControllerTest
   end
 
   def test_show_without_deploy_environments
-    Setting.plugin_redmine_deployment = { 'environments' => '' }
+    Setting.plugin_rubysmart_deployment = { 'environments' => '' }
 
     get :show, params: { id: 1 }
 

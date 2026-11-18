@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module RedmineDeployment
+module RubysmartDeployment
   # Deploy status of issues: "Code" (the issue has changesets), followed by the deploy environments of its project
-  # (RedmineDeployment::Environments - the central ones or the project's own ones).
+  # (RubysmartDeployment::Environments - the central ones or the project's own ones).
   #
   # A changeset is part of an environment
   # * deployment: if it is part of the commit range of a *successful* deployment of that environment - the same
@@ -32,7 +32,7 @@ module RedmineDeployment
   # here: the changesets of a deployment are stored (DeploymentChangeset, resolved once in the background - see
   # Deployment#resolve_changesets!) and read by one indexed query; the ancestors of the branch heads / tag commits
   # of a step only change when a head moves on, so they are computed by a recursive SQL query
-  # (RedmineDeployment::CommitRange) and cached - one entry per step and repository, replaced when its heads change.
+  # (RubysmartDeployment::CommitRange) and cached - one entry per step and repository, replaced when its heads change.
   # A branch / tag step costs the same whatever the number of branches / tags matching it (e.g. "/^v\d+/" and
   # thousands of release tags): one query for their changesets and ONE recursive query for their ancestors. The
   # branches and tags of a repository are read from git once per REFS_EXPIRES_IN (or when it fetched new commits),
@@ -81,7 +81,7 @@ module RedmineDeployment
       end
     end
 
-    CACHE_NAMESPACE = 'redmine_deployment/commit_range'
+    CACHE_NAMESPACE = 'rubysmart_deployment/commit_range'
     # the ancestors of a step: replaced when its heads change, dropped when unused this long (e.g. the feature branch
     # of a closed issue)
     CACHE_EXPIRES_IN = 7.days
@@ -151,10 +151,11 @@ module RedmineDeployment
     # (Issue#deployments) use it alike.
     #
     # @return [Time, nil] nil: all changesets count (the setting is off or the issue has no start date)
-    def self.counting_since(issue, user = User.current)
+    # +user+ defaults to the current user - looked up only with the option on (it costs a query without a request)
+    def self.counting_since(issue, user = nil)
       return unless issue&.start_date && DeploymentSetting.respect_start_date?
 
-      zone = user&.time_zone
+      zone = (user || User.current)&.time_zone
       zone ? issue.start_date.in_time_zone(zone) : issue.start_date.to_time
     end
 
@@ -204,7 +205,7 @@ module RedmineDeployment
     # the associations of the placeholders (e.g. {%tracker.name%}) at once - no N+1
     def preload_placeholders(environments, issues)
       associations = Environments.placeholder_associations(environments)
-      ActiveRecord::Associations::Preloader.new.preload(issues, associations) if associations.any? && issues.any?
+      ActiveRecord::Associations::Preloader.new(records: issues, associations: associations).call if associations.any? && issues.any?
     end
 
     def result_for(issue_id, changeset_ids, covering, environments, targets, code)
@@ -372,7 +373,7 @@ module RedmineDeployment
           Rails.cache.fetch([CACHE_NAMESPACE, kind, repository.id], version: refs_version(repository),
                                                                      expires_in: REFS_EXPIRES_IN, &block)
         rescue StandardError => e
-          Rails.logger.warn("RedmineDeployment::DeployStatus: #{kind} of repository #{repository.id}: #{e.message}")
+          Rails.logger.warn("RubysmartDeployment::DeployStatus: #{kind} of repository #{repository.id}: #{e.message}")
           {}
         end
     end

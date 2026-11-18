@@ -1,0 +1,10 @@
+# SVG icons of the plugin sprite (assets/images/icons.svg), downloaded from Tabler - only the icons Redmine's core
+# sprite has no equivalent for (statistics, add, delete, sort and expand come from the core sprite).
+# Regenerate with:
+#   bundle exec rake icons:plugin:generate NAME=rubysmart_deployment
+#
+# Keys:
+#   - name: icon name used with sprite_icon(name, plugin: :rubysmart_deployment)
+#     svg:  source icon name in the Tabler repository
+- name: overview
+  svg: list-details

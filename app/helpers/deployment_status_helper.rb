@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The deploy status of issues (RedmineDeployment::DeployStatus) - the central methods to render it, e.g. on the issue
+# The deploy status of issues (RubysmartDeployment::DeployStatus) - the central methods to render it, e.g. on the issue
 # page (right of the subject) and on the SCRUM taskboard of RI-Customizations. The styles are part of deployment.css.
 #
 # * deployment_indicator: the segments of the pipeline - "Code", then every environment
@@ -12,7 +12,7 @@ module DeploymentStatusHelper
 
   # The deploy pipeline: the indicator followed by the badge.
   #
-  # @param [RedmineDeployment::DeployStatus::Result] status
+  # @param [RubysmartDeployment::DeployStatus::Result] status
   # @param [Boolean] title - false: without the details as tooltip (the issue page shows them in its popup instead)
   def deployment_pipeline(status, title: true)
     content_tag(:span, deployment_indicator(status, title: title) + deployment_badge(status, title: title),
@@ -23,7 +23,7 @@ module DeploymentStatusHelper
   # (reached filled, partial striped, not reached grey). An environment that was skipped (e.g. not merged into
   # develop, but deployed to staging) is not shown as reached. The details are the title.
   #
-  # @param [RedmineDeployment::DeployStatus::Result] status
+  # @param [RubysmartDeployment::DeployStatus::Result] status
   def deployment_indicator(status, title: true)
     segments = [content_tag(:i, '', class: 'on', style: deployment_color_style(deployment_code_color(status)))]
     status.environments.each do |environment|
@@ -37,7 +37,7 @@ module DeploymentStatusHelper
   # the step "Code". States (CSS class deploy-badge-<state>): 'live' (the last environment is reached - filled),
   # 'reached' (outlined), 'partial' (newer commits pending - dashed) or 'code'. The details are the title.
   #
-  # @param [RedmineDeployment::DeployStatus::Result] status
+  # @param [RubysmartDeployment::DeployStatus::Result] status
   # @param [Boolean] short - only the first letter of the step (a line without room for its label, e.g. the collapsed
   #   card of the SCRUM taskboard); the whole label stays in the title
   def deployment_badge(status, short: false, title: true)
@@ -73,7 +73,7 @@ module DeploymentStatusHelper
     # the project decides whether its issue pages carry it (project settings, tab "Deployment")
     return ''.html_safe unless DeploymentSetting.issue_indicator?(issue.project)
 
-    deploy = RedmineDeployment::DeployStatus.new([issue], permission: RedmineDeployment::DeployStatus::INDICATOR_PERMISSION)
+    deploy = RubysmartDeployment::DeployStatus.new([issue], permission: RubysmartDeployment::DeployStatus::INDICATOR_PERMISSION)
     status = deploy[issue] if deploy.enabled?
     return ''.html_safe unless status
 
@@ -101,7 +101,7 @@ module DeploymentStatusHelper
   #
   # the steps of the pipeline, separated by arrows: "Code" and every environment as its badge, below it the condition
   #
-  # @param [RedmineDeployment::DeployStatus::Result] status
+  # @param [RubysmartDeployment::DeployStatus::Result] status
   # @param [Issue, nil] issue - names the issue in the headline ("Deployment-Pipeline - #42")
   def deployment_pipeline_details(status, issue = nil)
     deployment_pipeline_head(issue) + deployment_pipeline_body(status)
@@ -158,7 +158,7 @@ module DeploymentStatusHelper
     value = environment.target if environment.respond_to?(:target) && environment.target.present?
 
     case type
-    when RedmineDeployment::Environments::CODE_TYPE then l(:text_deployment_step_code)
+    when RubysmartDeployment::Environments::CODE_TYPE then l(:text_deployment_step_code)
     when 'branch' then l(:text_deployment_step_branch, branch: value)
     else l(:text_deployment_step_deployment, environment: value)
     end
@@ -185,7 +185,7 @@ module DeploymentStatusHelper
   end
 
   def deployment_code_color(status)
-    status.code&.color.presence || RedmineDeployment::Environments::CODE_COLOR
+    status.code&.color.presence || RubysmartDeployment::Environments::CODE_COLOR
   end
 
   # the last environment with commits of the issue (the step "Code" without one) - with "newer commits pending"

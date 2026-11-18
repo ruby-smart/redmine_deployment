@@ -7,5 +7,5 @@
   <em class="info"><%= l(:text_deployment_respect_start_date) %></em>
 </p>
 <%= render partial: 'deployment_settings/environments',
-           locals: { field_name: 'settings[environments]', code: RedmineDeployment::Environments.global_code,
-                     environments: RedmineDeployment::Environments.global } %>
+           locals: { field_name: 'settings[environments]', code: RubysmartDeployment::Environments.global_code,
+                     environments: RubysmartDeployment::Environments.global } %>

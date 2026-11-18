@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# The settings of the plugin (Setting.plugin_redmine_deployment) - like ContactsSetting of redmine_contacts:
+# The settings of the plugin (Setting.plugin_rubysmart_deployment) - like ContactsSetting of redmine_contacts:
 #
-#   'environments'       => the central deployment pipeline (text, see RedmineDeployment::Environments)
+#   'environments'       => the central deployment pipeline (text, see RubysmartDeployment::Environments)
 #   'respect_start_date' => '1': the pipeline counts only the changesets committed on or after the start date of the
-#                           issue (default '0': all of them, see RedmineDeployment::DeployStatus)
+#                           issue (default '0': all of them, see RubysmartDeployment::DeployStatus)
 #   'projects'     => { <project id> => { 'custom' => '1', 'environments' => <the project's own pipeline>,
 #                       'issue_indicator' => '1' (the issue page shows the deploy indicator) } }
 #
@@ -13,7 +13,7 @@ class DeploymentSetting
   class << self
     # @return [Hash] the plugin settings (string keys)
     def settings
-      (Setting.plugin_redmine_deployment.presence || {}).to_h.stringify_keys
+      (Setting.plugin_rubysmart_deployment.presence || {}).to_h.stringify_keys
     end
 
     # the setting +name+ - of the project, if given (like ContactsSetting[name, project])
@@ -83,7 +83,7 @@ class DeploymentSetting
     end
 
     def store(values)
-      Setting.plugin_redmine_deployment = values
+      Setting.plugin_rubysmart_deployment = values
     end
   end
 end

@@ -4,21 +4,28 @@ require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
 
 # Logging a deployment (the deploy process) never waits for the commit graph: the changesets are resolved by a job
 # of the background queue. ActiveJob's test adapter is used here (instead of the inline adapter of the test
-# environment) to tell the enqueue apart from the work.
+# environment) to tell the enqueue apart from the work - set explicitly like Redmine's own WebhookTest: since Rails 7.2
+# ActiveJob::TestHelper keeps an adapter configured by config.active_job.queue_adapter.
 class ResolveDeploymentChangesetsJobTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   fixtures :projects, :users, :repositories, :enabled_modules
 
   def setup
+    @original_adapter = ActiveJob::Base.queue_adapter
+    ActiveJob::Base.queue_adapter = :test
     @project    = Project.find(1)
     @repository = Repository::Git.create!(:project => @project, :url => '/tmp/job.git')
     @a = commit('a', 2.hours.ago)
     @b = commit('b', 1.hour.ago, [@a])
   end
 
+  def teardown
+    ActiveJob::Base.queue_adapter = @original_adapter
+  end
+
   def test_logging_a_deployment_enqueues_the_resolution_and_does_not_compute_it
-    RedmineDeployment::CommitRange.expects(:ids).never
+    RubysmartDeployment::CommitRange.expects(:ids).never
     deployment = nil
 
     assert_enqueued_with(:job => ResolveDeploymentChangesetsJob) do

@@ -1,18 +1,18 @@
 
-Redmine::Plugin.register :redmine_deployment do
-  name 'Redmine Deployment plugin'
+Redmine::Plugin.register :rubysmart_deployment do
+  name 'RubySmart Deployment plugin'
   author 'Ruby Smart'
-  description 'A plugin for repository deployments'
-  version '1.5.0'
-  url 'https://github.com/ruby-smart/redmine_deployment'
+  description "Logs every deploy and tracks each issue's road to LIVE - no more \"is it deployed yet?\""
+  version '1.6.0'
+  url 'https://git.gonzo-hosting.de/redmine/rubysmart_deployment'
   author_url 'https://ruby-smart.org'
 
   # redmine requirements
-  requires_redmine version_or_higher: '4.0'
+  requires_redmine version_or_higher: '6.0'
 
-  # the central deploy environments (RedmineDeployment::Environments) - a project can override them - and whether the
+  # the central deploy environments (RubysmartDeployment::Environments) - a project can override them - and whether the
   # pipeline counts only the changesets committed on or after the start date of an issue (off by default)
-  settings default: { 'environments' => nil, 'respect_start_date' => '0' }, partial: 'settings/redmine_deployment'
+  settings default: { 'environments' => nil, 'respect_start_date' => '0' }, partial: 'settings/rubysmart_deployment'
 
   project_module :deployment do
     permission :view_deployments, {
@@ -40,4 +40,4 @@ Redmine::Plugin.register :redmine_deployment do
   menu :application_menu, :deployments, { controller: :deployments, action: :index, project_id: nil }, caption: :label_deployment, if: Proc.new { User.current.logged? && User.current.allowed_to?(:view_deployments, nil, global: true) }
 end
 
-require File.dirname(__FILE__) + '/lib/redmine_deployment'
+require File.dirname(__FILE__) + '/lib/rubysmart_deployment'

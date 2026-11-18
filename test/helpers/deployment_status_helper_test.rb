@@ -6,9 +6,9 @@ require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
 class DeploymentStatusHelperTest < Redmine::HelperTest
   include DeploymentStatusHelper
 
-  Status      = RedmineDeployment::DeployStatus::Result
-  Environment = RedmineDeployment::DeployStatus::Environment
-  Code        = RedmineDeployment::Environments::Code
+  Status      = RubysmartDeployment::DeployStatus::Result
+  Environment = RubysmartDeployment::DeployStatus::Environment
+  Code        = RubysmartDeployment::Environments::Code
 
   def test_indicator
     html = deployment_indicator(status([0, 1, 2], code: Code.new('Git', '#445566')))
@@ -131,7 +131,7 @@ class DeploymentStatusHelperTest < Redmine::HelperTest
   private
 
   # covered changesets (of 2) of the environments Develop, Staging, Live
-  def status(covered, code: Code.new(nil, RedmineDeployment::Environments::CODE_COLOR))
+  def status(covered, code: Code.new(nil, RubysmartDeployment::Environments::CODE_COLOR))
     environments = [%w[Develop #2f6db5], %w[Staging #7657b8], %w[Live #2f9e44]].each_with_index.map do |(label, color), index|
       Environment.new(key: "deployment:#{label.downcase}", label: label, color: color, covered: covered[index], total: 2)
     end

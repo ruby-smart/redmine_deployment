@@ -6,8 +6,8 @@ class DeployStatusTest < ActiveSupport::TestCase
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles, :enabled_modules, :repositories,
            :trackers, :projects_trackers, :issue_statuses, :issues, :enumerations
 
-  Environment = RedmineDeployment::Environments::Environment
-  DeployStatus = RedmineDeployment::DeployStatus
+  Environment = RubysmartDeployment::Environments::Environment
+  DeployStatus = RubysmartDeployment::DeployStatus
 
   def setup
     Rails.cache.clear
@@ -126,7 +126,7 @@ class DeployStatusTest < ActiveSupport::TestCase
     assert status.enabled?
   end
 
-  def test_delta_ranges_like_redmine_deployment
+  def test_delta_ranges_like_rubysmart_deployment
     # c2 was deployed with the failed deployment only - the next successful one starts after it (from: c3)
     link(Issue.find(1), @c2)
     link(Issue.find(2), @c4)
@@ -158,11 +158,11 @@ class DeployStatusTest < ActiveSupport::TestCase
 
   # the queries of the deploy status of issue 1 - and not a single commit range computed meanwhile
   def status_queries
-    RedmineDeployment::CommitRange.stubs(:ids).raises('a commit range was computed for the deploy status')
+    RubysmartDeployment::CommitRange.stubs(:ids).raises('a commit range was computed for the deploy status')
     status = status_for(Issue.find(1))
     count_queries { yield status }
   ensure
-    RedmineDeployment::CommitRange.unstub(:ids)
+    RubysmartDeployment::CommitRange.unstub(:ids)
   end
 
   # Logged before its commits were fetched into Redmine, a deployment stays pending and covers nothing until it is
@@ -194,7 +194,7 @@ class DeployStatusTest < ActiveSupport::TestCase
     deployments.each do |deployment|
       revisions = [@repository.find_changeset_by_name(deployment.to_revision), @repository.find_changeset_by_name(deployment.from_revision)]
       expected  = deployment.changesets.pluck(:id).sort
-      actual    = RedmineDeployment::CommitRange.ids(revisions[0].id, revisions[1].id).sort
+      actual    = RubysmartDeployment::CommitRange.ids(revisions[0].id, revisions[1].id).sort
 
       assert_equal expected, actual, "range of #{deployment.from_revision}..#{deployment.to_revision}"
     end
@@ -468,15 +468,15 @@ class DeployStatusTest < ActiveSupport::TestCase
 
   def test_ancestors_of_several_heads
     side = commit('side', [@c2], 5.days.ago)
-    expected = (RedmineDeployment::CommitRange.ids(@c3.id) | RedmineDeployment::CommitRange.ids(side.id)).sort
+    expected = (RubysmartDeployment::CommitRange.ids(@c3.id) | RubysmartDeployment::CommitRange.ids(side.id)).sort
 
-    assert_equal expected, RedmineDeployment::CommitRange.ancestors([@c3.id, side.id, @c3.id]).sort
-    assert_equal [@c0, @c1, @c2, side].map(&:id).sort, RedmineDeployment::CommitRange.ancestors([side.id]).sort
-    assert_equal [], RedmineDeployment::CommitRange.ancestors([])
+    assert_equal expected, RubysmartDeployment::CommitRange.ancestors([@c3.id, side.id, @c3.id]).sort
+    assert_equal [@c0, @c1, @c2, side].map(&:id).sort, RubysmartDeployment::CommitRange.ancestors([side.id]).sort
+    assert_equal [], RubysmartDeployment::CommitRange.ancestors([])
 
     # without recursive queries: the walk in Ruby
-    RedmineDeployment::CommitRange.stubs(:sql_ancestors).raises(ActiveRecord::StatementInvalid, 'no recursive CTE')
-    assert_equal expected, RedmineDeployment::CommitRange.ancestors([@c3.id, side.id]).sort
+    RubysmartDeployment::CommitRange.stubs(:sql_ancestors).raises(ActiveRecord::StatementInvalid, 'no recursive CTE')
+    assert_equal expected, RubysmartDeployment::CommitRange.ancestors([@c3.id, side.id]).sort
   end
 
   def test_matching_tags_cost_the_same_whatever_their_number
@@ -484,19 +484,19 @@ class DeployStatusTest < ActiveSupport::TestCase
     link(Issue.find(1), @c3)
     link(Issue.find(2), @c5)
     commits = [@c1, @c2, @c3]
-    ancestors_of_c3 = RedmineDeployment::CommitRange.ids(@c3.id)
+    ancestors_of_c3 = RubysmartDeployment::CommitRange.ids(@c3.id)
 
     # the first run loads settings, roles etc. once
     runs = [3, 3, 30].map do |count|
       # the tags on c1..c3 - and some whose commits are not fetched into Redmine
       revisions = (1..count).to_h { |n| ["v#{n}", n % 4 == 0 ? format('%040x', n) : commits[n % 3].revision] }
       Repository::Git.any_instance.stubs(:tag_revisions).returns(revisions)
-      RedmineDeployment::CommitRange.expects(:ancestors).once.returns(ancestors_of_c3)
+      RubysmartDeployment::CommitRange.expects(:ancestors).once.returns(ancestors_of_c3)
 
       queries = 0
       counter = ->(*, payload) { queries += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name]) }
       status  = ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') { status_for(Issue.find(1), Issue.find(2)).statuses }
-      RedmineDeployment::CommitRange.unstub(:ancestors)
+      RubysmartDeployment::CommitRange.unstub(:ancestors)
 
       [queries, status.transform_values { |result| result.environments.map(&:state) }]
     end
@@ -588,7 +588,7 @@ class DeployStatusTest < ActiveSupport::TestCase
 
   def test_the_environments_of_each_project
     # project 1: its own environments, project 3: the central ones
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | staging | Staging
 deployment | production | Live" }
     DeploymentSetting.update_project(@project, 'custom' => '1', 'environments' => "deployment | production | Production | red")
     EnabledModule.create!(project: Project.find(3), name: 'deployment')
@@ -605,7 +605,7 @@ deployment | production | Live" }
   end
 
   def test_the_central_environments_by_default
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | production | Live" }
     DeploymentSetting.update_project(@project, 'custom' => '0', 'environments' => "deployment | staging | Staging")
     link(Issue.find(1), @c2)
     deploy('production', from: @c1, to: @c2)
@@ -663,7 +663,7 @@ deployment | production | Live" }
   end
 
   def test_respect_start_date_ignores_the_changesets_before_the_start_date
-    Setting.plugin_redmine_deployment = { 'respect_start_date' => '1' }
+    Setting.plugin_rubysmart_deployment = { 'respect_start_date' => '1' }
     link(Issue.find(1), @c2, @c3, @c4)
     deploy('staging', from: @c2, to: @c3)
     # c2 was committed the day before, c3 on the start date (later that day) - it counts
@@ -677,7 +677,7 @@ deployment | production | Live" }
   end
 
   def test_respect_start_date_without_changesets_since_the_start_date
-    Setting.plugin_redmine_deployment = { 'respect_start_date' => '1' }
+    Setting.plugin_rubysmart_deployment = { 'respect_start_date' => '1' }
     link(Issue.find(1), @c2, @c3)
     deploy('staging', from: @c1, to: @c3)
     Issue.find(1).update_column(:start_date, Date.current)
@@ -687,7 +687,7 @@ deployment | production | Live" }
 
   # from midnight in the time zone of the user - the server's without one
   def test_respect_start_date_from_midnight_in_the_time_zone_of_the_user
-    Setting.plugin_redmine_deployment = { 'respect_start_date' => '1' }
+    Setting.plugin_rubysmart_deployment = { 'respect_start_date' => '1' }
     tokyo = ActiveSupport::TimeZone['Tokyo']
     start = tokyo.now.to_date - 1
     # 01:00 in Tokyo on the start date - the day before in UTC and in Hawaii
@@ -701,12 +701,12 @@ deployment | production | Live" }
     assert_equal 1, DeployStatus.new([Issue.find(1)], user: user_in('Tokyo'), environments: @environments)[Issue.find(1)].changeset_count
     assert_nil DeployStatus.new([Issue.find(1)], user: user_in('Hawaii'), environments: @environments)[Issue.find(1)]
 
-    Setting.plugin_redmine_deployment = { 'respect_start_date' => '0' }
+    Setting.plugin_rubysmart_deployment = { 'respect_start_date' => '0' }
     assert_nil DeployStatus.counting_since(Issue.find(1), user_in('Tokyo'))
   end
 
   def test_respect_start_date_counts_all_changesets_of_an_issue_without_start_date
-    Setting.plugin_redmine_deployment = { 'respect_start_date' => '1' }
+    Setting.plugin_rubysmart_deployment = { 'respect_start_date' => '1' }
     link(Issue.find(1), @c2, @c3)
     link(Issue.find(2), @c2, @c3)
     deploy('staging', from: @c1, to: @c3)

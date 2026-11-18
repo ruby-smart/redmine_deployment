@@ -59,7 +59,7 @@ class IssueDeploymentsTest < ActiveSupport::TestCase
     @issue.changesets << @c
     5.times { create_deployment(:from_revision => @a.revision, :to_revision => @d.revision) }
     5.times { create_deployment(:from_revision => @c.revision, :to_revision => @d.revision) }
-    RedmineDeployment::CommitRange.expects(:ids).never
+    RubysmartDeployment::CommitRange.expects(:ids).never
     # the plugin settings are read once per request (Setting cache) - not counted here
     DeploymentSetting.respect_start_date?
 
@@ -93,7 +93,7 @@ class IssueDeploymentsTest < ActiveSupport::TestCase
     assert_equal [newer.id, older.id], @issue.deployments.map(&:id)
   end
 
-  # like the deploy status (RedmineDeployment::DeployStatus.counting_since): with "respect_start_date" only the
+  # like the deploy status (RubysmartDeployment::DeployStatus.counting_since): with "respect_start_date" only the
   # changesets committed on or after the start date of the issue count
   def test_issue_deployments_respect_the_start_date_of_the_issue
     old = create_changeset('old', 3.days.ago, [@d])
@@ -104,7 +104,7 @@ class IssueDeploymentsTest < ActiveSupport::TestCase
     # off by default
     assert_equal [deployment.id], @issue.deployments(@user).map(&:id)
 
-    Setting.plugin_redmine_deployment = { 'respect_start_date' => '1' }
+    Setting.plugin_rubysmart_deployment = { 'respect_start_date' => '1' }
     assert_empty @issue.deployments(@user)
 
     @issue.update_column(:start_date, 5.days.ago.to_date)

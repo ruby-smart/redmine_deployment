@@ -5,11 +5,11 @@ require File.expand_path('../test_helper', __dir__)
 class EnvironmentsTest < ActiveSupport::TestCase
   fixtures :projects, :users, :trackers, :issue_statuses, :issues, :issue_categories, :enumerations
 
-  Environments = RedmineDeployment::Environments
+  Environments = RubysmartDeployment::Environments
 
   def setup
     Setting.clear_cache
-    Setting.plugin_redmine_deployment = {}
+    Setting.plugin_rubysmart_deployment = {}
   end
 
   def teardown
@@ -20,7 +20,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
     assert_equal [%w[deployment development Development], %w[deployment staging Staging], %w[deployment production Live]],
                  Environments.global.map { |environment| [environment.type, environment.value, environment.label] }
 
-    Setting.plugin_redmine_deployment = { 'environments' => "branch|develop\r\n\n# comment\n  deployment |  pre prod  | Pre Prod  \n" \
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch|develop\r\n\n# comment\n  deployment |  pre prod  | Pre Prod  \n" \
                                                              "branch | develop | Duplicate\nbranch | release/2.0 | Release\n" }
     environments = Environments.global
     assert_equal [%w[branch develop Develop], ['deployment', 'pre prod', 'Pre Prod'], ['branch', 'release/2.0', 'Release']],
@@ -29,7 +29,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
     assert environments.first.branch?
     assert environments.second.deployment?
 
-    Setting.plugin_redmine_deployment = { 'environments' => '' }
+    Setting.plugin_rubysmart_deployment = { 'environments' => '' }
     assert_empty Environments.global
   end
 
@@ -39,17 +39,17 @@ class EnvironmentsTest < ActiveSupport::TestCase
     Environments::COLORS.each_value { |color| assert_match Environments::COLOR_FORMAT, color }
 
     # without a color: by position, the last environment is green
-    Setting.plugin_redmine_deployment = { 'environments' => "branch | develop\nbranch | stage\ndeployment | qa\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch | develop\nbranch | stage\ndeployment | qa\ndeployment | production | Live" }
     assert_equal %w[#2f6db5 #7657b8 #c98a00 #2f9e44], Environments.global.map(&:color)
 
     # by name or '#rrggbb', an empty label keeps the default label
-    Setting.plugin_redmine_deployment = { 'environments' => "branch | develop | | pink\ndeployment | production | Live | #ABCDEF\ndeployment | qa" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch | develop | | pink\ndeployment | production | Live | #ABCDEF\ndeployment | qa" }
     assert_equal [['Develop', '#c2417f'], ['Live', '#abcdef'], ['Qa', '#2f9e44']],
                  Environments.global.map { |environment| [environment.label, environment.color] }
   end
 
   def test_line
-    Setting.plugin_redmine_deployment = { 'environments' => "branch | develop\ndeployment | production | Live | pink" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch | develop\ndeployment | production | Live | pink" }
 
     lines = Environments.global.map { |environment| Environments.line(environment) }
 
@@ -58,14 +58,14 @@ class EnvironmentsTest < ActiveSupport::TestCase
   end
 
   def test_invalid_lines_are_ignored
-    Setting.plugin_redmine_deployment = { 'environments' => "release | v1 | V1\nbranch |  | Empty\ndeployment | a | b | c\ndeployment | a | b | #12345\n" \
+    Setting.plugin_rubysmart_deployment = { 'environments' => "release | v1 | V1\nbranch |  | Empty\ndeployment | a | b | c\ndeployment | a | b | #12345\n" \
                                                              "Branch | main\nbranch | main | Main" }
 
     assert_equal ['branch:main'], Environments.global.map(&:key)
   end
 
   def test_legacy_lines_are_converted
-    Setting.plugin_redmine_deployment = { 'environments' => "staging: Stage\n\nproduction\nstaging = Duplicate\nbranch | main\n" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "staging: Stage\n\nproduction\nstaging = Duplicate\nbranch | main\n" }
 
     assert_equal "deployment | staging | Stage\n\ndeployment | production | Production\ndeployment | staging | Duplicate\nbranch | main",
                  Environments.global_text
@@ -88,7 +88,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
     # without a code line: the default label (nil - translated "Code") and color
     assert_equal [nil, '#66707a'], Environments.global_code.to_a
 
-    Setting.plugin_redmine_deployment = { 'environments' => "branch | develop\ncode |  | Commits | teal\ncode | | Other | red" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch | develop\ncode |  | Commits | teal\ncode | | Other | red" }
     # the first code line - it is no environment
     assert_equal ['Commits', '#1c8a8a'], Environments.global_code.to_a
     assert_equal ['branch:develop'], Environments.global.map(&:key)
@@ -107,7 +107,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
   end
 
   def test_the_code_of_a_project
-    Setting.plugin_redmine_deployment = { 'environments' => "code |  | Central | blue\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "code |  | Central | blue\ndeployment | production | Live" }
     project = Project.find(1)
     assert_equal ['Central', '#2f6db5'], Environments.code_for(project).to_a
 
@@ -117,7 +117,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
   end
 
   def test_the_environments_of_a_project
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | staging | Staging\ndeployment | production | Live" }
     project = Project.find(1)
 
     # without own environments: the central ones
@@ -226,7 +226,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
   end
 
   def test_tags
-    Setting.plugin_redmine_deployment = { 'environments' => "branch | main\ntag | /^v\\d+\\./ | Release\ntag | v2.1.0\ndeployment | production" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch | main\ntag | /^v\\d+\\./ | Release\ntag | v2.1.0\ndeployment | production" }
 
     environments = Environments.global
     assert_equal ['branch:main', 'tag:/^v\\d+\\./', 'tag:v2.1.0', 'deployment:production'], environments.map(&:key)
@@ -288,7 +288,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
   end
 
   def test_invalid_regexps_are_ignored
-    Setting.plugin_redmine_deployment = { 'environments' => "branch | /^(develop/\nbranch | /[/ | Broken\nbranch | /^main$/" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "branch | /^(develop/\nbranch | /[/ | Broken\nbranch | /^main$/" }
 
     assert_equal ['branch:/^main$/'], Environments.global.map(&:key)
     assert_nil Environments.resolve('/^(develop/', nil)

@@ -18,11 +18,11 @@ class DeploymentPluginSettingsTest < Redmine::ControllerTest
   end
 
   def test_plugin_settings_should_show_the_environments_table
-    get :plugin, params: { id: 'redmine_deployment' }
+    get :plugin, params: { id: 'rubysmart_deployment' }
 
     assert_response :success
     assert_select 'input[type=hidden].deployment-environments-field[name=?][data-pattern=?][data-message*=?][data-colors]',
-                  'settings[environments]', RedmineDeployment::Environments::PATTERN, '%{lines}' do |field|
+                  'settings[environments]', RubysmartDeployment::Environments::PATTERN, '%{lines}' do |field|
       assert_equal "code |  |  | #66707a\ndeployment | development | Development | #2f6db5\n" \
                    "deployment | staging | Staging | #7657b8\ndeployment | production | Live | #2f9e44", field.first['value']
       assert_nil field.first['disabled']
@@ -53,9 +53,9 @@ class DeploymentPluginSettingsTest < Redmine::ControllerTest
   end
 
   def test_plugin_settings_should_show_former_lines_converted
-    Setting.plugin_redmine_deployment = { 'environments' => "staging = Stage\nproduction = Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "staging = Stage\nproduction = Live" }
 
-    get :plugin, params: { id: 'redmine_deployment' }
+    get :plugin, params: { id: 'rubysmart_deployment' }
 
     assert_select 'input[name=?]', 'settings[environments]' do |field|
       assert_equal "code |  |  | #66707a\ndeployment | staging | Stage | #2f6db5\ndeployment | production | Live | #2f9e44", field.first['value']
@@ -65,30 +65,30 @@ class DeploymentPluginSettingsTest < Redmine::ControllerTest
   def test_post_plugin_settings_should_keep_the_project_settings
     DeploymentSetting.update_project(Project.find(1), 'custom' => '1', 'environments' => 'branch | develop')
 
-    post :plugin, params: { id: 'redmine_deployment', settings: { environments: 'deployment | production | Live' } }
+    post :plugin, params: { id: 'rubysmart_deployment', settings: { environments: 'deployment | production | Live' } }
 
     assert_response :redirect
-    assert_equal 'deployment | production | Live', Setting.plugin_redmine_deployment['environments']
-    assert_equal({ 1 => { 'custom' => '1', 'environments' => 'branch | develop' } }, Setting.plugin_redmine_deployment['projects'])
+    assert_equal 'deployment | production | Live', Setting.plugin_rubysmart_deployment['environments']
+    assert_equal({ 1 => { 'custom' => '1', 'environments' => 'branch | develop' } }, Setting.plugin_rubysmart_deployment['projects'])
   end
 
   def test_post_plugin_settings_should_save_the_environments
-    post :plugin, params: { id: 'redmine_deployment', settings: {
+    post :plugin, params: { id: 'rubysmart_deployment', settings: {
       environments: "code |  | Commits | #445566\r\nbranch | develop | Develop | #112233\r\ndeployment | production | Live"
     } }
 
     assert_response :redirect
     assert_equal [['branch:develop', 'Develop', '#112233'], ['deployment:production', 'Live', '#2f9e44']],
-                 RedmineDeployment::Environments.global.map { |environment| [environment.key, environment.label, environment.color] }
-    assert_equal ['Commits', '#445566'], RedmineDeployment::Environments.global_code.to_a
+                 RubysmartDeployment::Environments.global.map { |environment| [environment.key, environment.label, environment.color] }
+    assert_equal ['Commits', '#445566'], RubysmartDeployment::Environments.global_code.to_a
 
-    get :plugin, params: { id: 'redmine_deployment' }
+    get :plugin, params: { id: 'rubysmart_deployment' }
     assert_select 'tr.deployment-code input.deploy-env-label[value=Commits]'
     assert_select 'tr.deployment-code input.deploy-env-color[value=?]', '#445566'
   end
 
   def test_plugin_settings_should_show_the_start_date_option_off_by_default
-    get :plugin, params: { id: 'redmine_deployment' }
+    get :plugin, params: { id: 'rubysmart_deployment' }
 
     assert_response :success
     assert_select 'input[type=hidden][name=?][value="0"]', 'settings[respect_start_date]'
@@ -96,15 +96,15 @@ class DeploymentPluginSettingsTest < Redmine::ControllerTest
   end
 
   def test_post_plugin_settings_should_save_the_start_date_option
-    post :plugin, params: { id: 'redmine_deployment', settings: { environments: 'deployment | production', respect_start_date: '1' } }
+    post :plugin, params: { id: 'rubysmart_deployment', settings: { environments: 'deployment | production', respect_start_date: '1' } }
 
     assert_response :redirect
     assert DeploymentSetting.respect_start_date?
 
-    get :plugin, params: { id: 'redmine_deployment' }
+    get :plugin, params: { id: 'rubysmart_deployment' }
     assert_select 'input[type=checkbox][name=?][checked=checked]', 'settings[respect_start_date]'
 
-    post :plugin, params: { id: 'redmine_deployment', settings: { environments: 'deployment | production', respect_start_date: '0' } }
+    post :plugin, params: { id: 'rubysmart_deployment', settings: { environments: 'deployment | production', respect_start_date: '0' } }
     assert_not DeploymentSetting.respect_start_date?
   end
 
@@ -119,7 +119,7 @@ class DeploymentSettingsProjectTabTest < Redmine::ControllerTest
 
   def setup
     Setting.clear_cache
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | staging | Staging\ndeployment | production | Live" }
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment')
     Role.find(1).add_permission!(:manage_deployment_settings)
@@ -197,14 +197,14 @@ class DeploymentSettingsControllerTest < Redmine::ControllerTest
 
     assert_redirected_to '/projects/ecookbook/settings/deployment'
     assert_equal [%w[branch:develop Develop], %w[deployment:production Live]],
-                 RedmineDeployment::Environments.for(@project).map { |environment| [environment.key, environment.label] }
-    assert_equal ['Git', '#c93c3c'], RedmineDeployment::Environments.code_for(@project).to_a
-    assert RedmineDeployment::Environments.custom?(@project)
+                 RubysmartDeployment::Environments.for(@project).map { |environment| [environment.key, environment.label] }
+    assert_equal ['Git', '#c93c3c'], RubysmartDeployment::Environments.code_for(@project).to_a
+    assert RubysmartDeployment::Environments.custom?(@project)
     # stored in the plugin settings like redmine_contacts: 'projects' => { <project id> => { ... } }
     assert_equal({ 'custom' => '1', 'issue_indicator' => '0',
                    'environments' => "code |  | Git | red\r\nbranch | develop | Develop\r\ndeployment | production | Live" },
-                 Setting.plugin_redmine_deployment['projects'][1])
-    assert_nil Setting.plugin_redmine_deployment['environments'] # the central pipeline is untouched (default)
+                 Setting.plugin_rubysmart_deployment['projects'][1])
+    assert_nil Setting.plugin_rubysmart_deployment['environments'] # the central pipeline is untouched (default)
   end
 
   # the issue pages of a project only carry the deploy indicator when it asks for it
@@ -228,7 +228,7 @@ class DeploymentSettingsControllerTest < Redmine::ControllerTest
 
     assert_equal({ 'custom' => '0', 'issue_indicator' => '0', 'environments' => 'branch | develop | Develop' },
                  DeploymentSetting.project_settings(@project))
-    assert_not RedmineDeployment::Environments.custom?(@project)
+    assert_not RubysmartDeployment::Environments.custom?(@project)
   end
 
   def test_update_should_require_the_permission

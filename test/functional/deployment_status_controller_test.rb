@@ -14,7 +14,7 @@ class DeploymentStatusControllerTest < Redmine::ControllerTest
     # the commit range of a deployment is cached
     Rails.cache.clear
     Setting.clear_cache
-    Setting.plugin_redmine_deployment = { 'environments' => "deployment | staging | Staging\ndeployment | production | Live" }
+    Setting.plugin_rubysmart_deployment = { 'environments' => "deployment | staging | Staging\ndeployment | production | Live" }
 
     @project = Project.find(1)
     EnabledModule.create!(project: @project, name: 'deployment') unless @project.module_enabled?(:deployment)

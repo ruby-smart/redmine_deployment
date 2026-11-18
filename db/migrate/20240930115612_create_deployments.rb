@@ -1,4 +1,4 @@
-class CreateDeployments < Rails.version < '5.1' ? ActiveRecord::Migration : ActiveRecord::Migration[4.2]
+class CreateDeployments < ActiveRecord::Migration[4.2]
   def up
     create_table :deployments do |t|
       t.integer :project_id, null: false

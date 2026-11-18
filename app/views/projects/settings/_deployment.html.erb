@@ -19,8 +19,8 @@
     <%# without own environments: the central ones (read-only) - checking the box starts from them %>
     <%= render partial: 'deployment_settings/environments',
                locals: { field_name: 'deployment_setting[environments]', disabled: !custom,
-                         code: custom ? RedmineDeployment::Environments.parse_code(own) : RedmineDeployment::Environments.global_code,
-                         environments: custom ? RedmineDeployment::Environments.parse(own) : RedmineDeployment::Environments.global } %>
+                         code: custom ? RubysmartDeployment::Environments.parse_code(own) : RubysmartDeployment::Environments.global_code,
+                         environments: custom ? RubysmartDeployment::Environments.parse(own) : RubysmartDeployment::Environments.global } %>
   </div>
   <%= submit_tag l(:button_save) %>
 <% end %>
