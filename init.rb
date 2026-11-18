@@ -1,10 +1,10 @@
 
 Redmine::Plugin.register :rubysmart_deployment do
   name 'RubySmart Deployment plugin'
-  author 'Ruby Smart'
+  author 'RubySmart'
   description "Logs every deploy and tracks each issue's road to LIVE - no more \"is it deployed yet?\""
   version '1.6.0'
-  url 'https://git.gonzo-hosting.de/redmine/rubysmart_deployment'
+  url 'https://ruby-smart.org/redmine/rubysmart_deployment'
   author_url 'https://ruby-smart.org'
 
   # redmine requirements
