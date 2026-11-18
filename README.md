@@ -11,7 +11,7 @@ A plugin for repository deployments
 
 ## Environment
 
-![](https://img.shields.io/badge/ruby-3.3-green.svg "Ruby 3.3")
+![](https://img.shields.io/badge/ruby-4.0-green.svg "Ruby 4.0")
 ![](https://img.shields.io/badge/rails-8.1-green.svg "Rails 8.1")
 ![](https://img.shields.io/badge/redmine-7.0-green.svg "Redmine 7.0")
 
