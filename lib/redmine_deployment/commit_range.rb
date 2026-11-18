@@ -12,8 +12,10 @@ module RedmineDeployment
   # history - on a database without recursive CTEs.
   #
   # Neither runs in a request: the range of a deployment never changes, so it is stored once
-  # (Deployment#resolve_changesets!, DeploymentChangeset); the ancestors of a branch head are cached by the head
-  # (DeployStatus#range_ids).
+  # (Deployment#resolve_changesets!, DeploymentChangeset); the ancestors of the branch heads / tag commits of a
+  # pipeline step are cached by the step and its heads (DeployStatus#ref_ancestor_ids). The ancestors of several
+  # heads at once - all branches / tags matching a step, e.g. hundreds of release tags - are ONE query as well
+  # (+ancestors+), not one per head.
   module CommitRange
     # Defensive upper bound on how many changesets the Ruby walk visits, guarding against pathological histories.
     # Logged if hit; never silently truncated.
@@ -25,10 +27,28 @@ module RedmineDeployment
     # @param [Integer, nil] from_id the changeset id of the lower boundary (exclusive) - nil: all ancestors of +to+
     # @return [Array<Integer>] the changeset ids of the range
     def ids(to_id, from_id = nil)
+      return ancestors([to_id]) unless from_id
+
       sql_ids(to_id, from_id)
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.warn("RedmineDeployment::CommitRange: #{e.message} - walking the commit graph in Ruby instead")
       walk_ids(to_id, from_id)
+    end
+
+    # All ancestors of the heads, inclusive of the heads: ONE recursive query whatever the number of heads - the
+    # cones of the heads overlap (e.g. release tags on one line of history), UNION visits every commit once. Falls
+    # back to a walk in Ruby like +ids+.
+    #
+    # @param [Array<Integer>] head_ids changeset ids (e.g. the commits of all tags matching a step)
+    # @return [Array<Integer>] the changeset ids
+    def ancestors(head_ids)
+      head_ids = head_ids.map(&:to_i).uniq
+      return [] if head_ids.empty?
+
+      sql_ancestors(head_ids)
+    rescue ActiveRecord::StatementInvalid => e
+      Rails.logger.warn("RedmineDeployment::CommitRange: #{e.message} - walking the commit graph in Ruby instead")
+      walk_ancestors(head_ids).to_a
     end
 
     # True when the parent graph is usable for the repository: a git repository whose +changeset_parents+ edges
@@ -38,31 +58,23 @@ module RedmineDeployment
         ChangesetParent.where(:changeset_id => Changeset.where(:repository_id => repository.id).select(:id)).exists?
     end
 
-    # the range by one recursive query - see +ids+
+    # the range from..to by one recursive query - see +ids+ (without +from+: +ancestors+)
     def sql_ids(to_id, from_id)
       connection = Changeset.connection
       prepare_recursion(connection)
 
       changesets = Changeset.table_name
-      excluded   =
-        if from_id
-          <<~SQL
-            excluded(id) AS (
-              SELECT id FROM #{changesets} WHERE id = #{from_id.to_i}
-              UNION
-              SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN excluded ON cp.changeset_id = excluded.id
-            ),
-          SQL
-        end
-      not_excluded        = from_id ? ' AND id NOT IN (SELECT id FROM excluded)' : ''
-      parent_not_excluded = from_id ? ' WHERE cp.parent_id NOT IN (SELECT id FROM excluded)' : ''
-
       sql = <<~SQL
-        WITH RECURSIVE #{excluded}
-        deployed(id) AS (
-          SELECT id FROM #{changesets} WHERE id = #{to_id.to_i}#{not_excluded}
+        WITH RECURSIVE excluded(id) AS (
+          SELECT id FROM #{changesets} WHERE id = #{from_id.to_i}
           UNION
-          SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN deployed ON cp.changeset_id = deployed.id#{parent_not_excluded}
+          SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN excluded ON cp.changeset_id = excluded.id
+        ),
+        deployed(id) AS (
+          SELECT id FROM #{changesets} WHERE id = #{to_id.to_i} AND id NOT IN (SELECT id FROM excluded)
+          UNION
+          SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN deployed ON cp.changeset_id = deployed.id
+            WHERE cp.parent_id NOT IN (SELECT id FROM excluded)
         )
         SELECT id FROM deployed
       SQL
@@ -70,9 +82,26 @@ module RedmineDeployment
       connection.select_values(sql).map(&:to_i)
     end
 
+    # the ancestors of the heads by one recursive query - see +ancestors+
+    def sql_ancestors(head_ids)
+      connection = Changeset.connection
+      prepare_recursion(connection)
+
+      sql = <<~SQL
+        WITH RECURSIVE reachable(id) AS (
+          SELECT id FROM #{Changeset.table_name} WHERE id IN (#{head_ids.join(', ')})
+          UNION
+          SELECT cp.parent_id FROM #{parents_table} cp INNER JOIN reachable ON cp.changeset_id = reachable.id
+        )
+        SELECT id FROM reachable
+      SQL
+
+      connection.select_values(sql).map(&:to_i)
+    end
+
     # the range by a walk over the graph in Ruby: one query per generation of commits - see +ids+
     def walk_ids(to_id, from_id)
-      excluded = from_id ? ancestor_ids([from_id]) : Set.new
+      excluded = from_id ? walk_ancestors([from_id]) : Set.new
       result   = Set.new
       visited  = Set.new([to_id])
       frontier = [to_id]
@@ -87,8 +116,10 @@ module RedmineDeployment
       result.to_a
     end
 
-    # all ancestor ids of the seeds, inclusive of the seeds themselves
-    def ancestor_ids(seed_ids)
+    # all ancestor ids of the seeds, inclusive of the seeds themselves - by a walk in Ruby (see +ancestors+)
+    #
+    # @return [Set<Integer>]
+    def walk_ancestors(seed_ids)
       visited  = Set.new(seed_ids)
       frontier = seed_ids
 
@@ -97,7 +128,7 @@ module RedmineDeployment
         visited.merge(frontier)
       end
 
-      warn_traversal_cap(seed_ids.first, 'ancestor_ids') if visited.size >= MAX_TRAVERSAL
+      warn_traversal_cap(seed_ids.first, 'walk_ancestors') if visited.size >= MAX_TRAVERSAL
       visited
     end
 

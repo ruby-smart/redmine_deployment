@@ -86,6 +86,28 @@ class DeploymentPluginSettingsTest < Redmine::ControllerTest
     assert_select 'tr.deployment-code input.deploy-env-label[value=Commits]'
     assert_select 'tr.deployment-code input.deploy-env-color[value=?]', '#445566'
   end
+
+  def test_plugin_settings_should_show_the_start_date_option_off_by_default
+    get :plugin, params: { id: 'redmine_deployment' }
+
+    assert_response :success
+    assert_select 'input[type=hidden][name=?][value="0"]', 'settings[respect_start_date]'
+    assert_select 'input[type=checkbox][name=?]:not([checked])', 'settings[respect_start_date]'
+  end
+
+  def test_post_plugin_settings_should_save_the_start_date_option
+    post :plugin, params: { id: 'redmine_deployment', settings: { environments: 'deployment | production', respect_start_date: '1' } }
+
+    assert_response :redirect
+    assert DeploymentSetting.respect_start_date?
+
+    get :plugin, params: { id: 'redmine_deployment' }
+    assert_select 'input[type=checkbox][name=?][checked=checked]', 'settings[respect_start_date]'
+
+    post :plugin, params: { id: 'redmine_deployment', settings: { environments: 'deployment | production', respect_start_date: '0' } }
+    assert_not DeploymentSetting.respect_start_date?
+  end
+
 end
 
 # the project's own deploy environments (project settings, tab "Deployment")

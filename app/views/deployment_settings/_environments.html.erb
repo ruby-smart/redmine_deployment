@@ -1,7 +1,7 @@
 <%# The deployment pipeline as table (deployment_environments.js): the static step "Code", then the environments -
     saved as text, one line per row in the order of the table (hidden field +field_name+): "code | | <label> | <color>"
     and "<type> | <value> | <label> | <color>", every row is checked with the pattern of the parser
-    (RedmineDeployment::Environments::PATTERN).
+    (RedmineDeployment::Environments::PATTERN), a regular expression as value ("/.../") must compile.
     locals: field_name, code, environments, disabled (read-only, e.g. the central pipeline of a project) %>
 <% disabled = local_assigns[:disabled] %>
 <div class="deployment-environments<%= ' deployment-environments-disabled' if disabled %>">
@@ -9,6 +9,8 @@
   <%= hidden_field_tag field_name, RedmineDeployment::Environments.text(code, environments),
                        id: nil, class: 'deployment-environments-field', disabled: disabled,
                        data: { pattern: RedmineDeployment::Environments::PATTERN,
+                               regexp: RedmineDeployment::Environments::REGEXP_PATTERN,
+                               placeholder: RedmineDeployment::Environments::PLACEHOLDER.source,
                                message: l(:text_deployment_environments_invalid, lines: '%{lines}'),
                                colors: RedmineDeployment::Environments::DEFAULT_COLORS.map { |name| RedmineDeployment::Environments::COLORS[name] } } %>
   <table class="list deployment-environments-table">
@@ -33,7 +35,12 @@
   <p class="deployment-environments-empty"<%= ' style="display: none;"'.html_safe if environments.any? %>><%= l(:text_deployment_environments_empty) %></p>
   <a href="#" class="icon icon-add deployment-environment-add"><%= l(:label_deployment_environment_add) %></a>
   <span class="deployment-environments-error" style="display: none;"></span>
-  <em class="info"><%= l(:text_deployment_environments) %></em>
+  <%# the help: paragraphs (separated by an empty line) of lines - HTML of the locales %>
+  <em class="info deployment-environments-help">
+    <% l(:text_deployment_environments_html).split(/\n\s*\n/).each do |paragraph| %>
+      <span><%= safe_join(paragraph.split("\n").map(&:html_safe), tag.br) %></span>
+    <% end %>
+  </em>
 </div>
 
 <% content_for :header_tags do %>

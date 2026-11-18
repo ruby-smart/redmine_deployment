@@ -2,7 +2,9 @@
 
 # The settings of the plugin (Setting.plugin_redmine_deployment) - like ContactsSetting of redmine_contacts:
 #
-#   'environments' => the central deployment pipeline (text, see RedmineDeployment::Environments)
+#   'environments'       => the central deployment pipeline (text, see RedmineDeployment::Environments)
+#   'respect_start_date' => '1': the pipeline counts only the changesets committed on or after the start date of the
+#                           issue (default '0': all of them, see RedmineDeployment::DeployStatus)
 #   'projects'     => { <project id> => { 'custom' => '1', 'environments' => <the project's own pipeline>,
 #                       'issue_indicator' => '1' (the issue page shows the deploy indicator) } }
 #
@@ -61,6 +63,12 @@ class DeploymentSetting
     # off until a project asks for it
     def issue_indicator?(project)
       self['issue_indicator', project].to_s == '1'
+    end
+
+    # true, if the deployment pipeline counts only the changesets committed on or after the start date of an issue
+    # (plugin settings) - off by default
+    def respect_start_date?
+      self['respect_start_date'].to_s == '1'
     end
 
     private

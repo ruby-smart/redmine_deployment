@@ -45,12 +45,21 @@ module RedmineDeployment
         # issue's changesets - by the stored changesets of the deployments (DeploymentChangeset, resolved
         # once in the background): one indexed query, whatever the size of the repository history or the
         # number of deployments. Ordered newest deployment first.
-        def deployments
+        #
+        # With the plugin setting "respect_start_date" only the changesets committed on or after the start date of the
+        # issue count - like for its deploy status (RedmineDeployment::DeployStatus.counting_since, time zone of +user+).
+        def deployments(user = User.current)
           changesets_issues = "#{Changeset.table_name_prefix}changesets_issues#{Changeset.table_name_suffix}"
           deploying = DeploymentChangeset.
             joins("INNER JOIN #{changesets_issues} ci ON ci.changeset_id = #{DeploymentChangeset.table_name}.changeset_id").
             where('ci.issue_id' => id).
             select(:deployment_id)
+          since = RedmineDeployment::DeployStatus.counting_since(self, user)
+          if since
+            deploying = deploying.
+              joins("INNER JOIN #{Changeset.table_name} c ON c.id = ci.changeset_id").
+              where('c.committed_on >= ?', since)
+          end
 
           Deployment.where(:id => deploying).order("#{Deployment.table_name}.created_on DESC")
         end

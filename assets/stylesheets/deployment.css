@@ -85,7 +85,10 @@ div.issue div.subject .deploy-issue-status .deploy-badge { font-size: 12px; line
 
 /* deploy environments table (plugin settings, project settings) */
 .deployment-environments { padding: 3px 0 3px 180px; clear: left; min-height: 2em; }
-table.deployment-environments-table { width: auto; min-width: 520px; max-width: 95%; margin-bottom: 4px; }
+/* plugin settings: the wider label column of Redmine (.tabular.settings p) */
+.tabular.settings .deployment-environments { padding-left: 300px; }
+/* the same space after the label as a checkbox (its margin-left) */
+table.deployment-environments-table { width: auto; min-width: 520px; max-width: 95%; margin: 0 0 4px 4px; }
 table.deployment-environments-table td { padding: 2px 6px; text-align: left; }
 table.deployment-environments-table td.deploy-env-handle,
 table.deployment-environments-table td.buttons { width: 20px; text-align: center; }
@@ -94,6 +97,11 @@ table.deployment-environments-table input.deploy-env-color { width: 32px; height
 table.deployment-environments-table tr.deploy-env-invalid td { background: #fdf3f3; }
 table.deployment-environments-table tr.deploy-env-invalid input.deploy-env-value { border-color: #c93c3c; }
 .deployment-environments p.deployment-environments-empty { padding: 0; color: #888; font-style: italic; }
+/* the help below the table (set off from the link "Add environment"): paragraphs, examples highlighted */
+.deployment-environments-help { margin-top: 1em; }
+.deployment-environments-help > span { display: block; }
+.deployment-environments-help > span + span { margin-top: .6em; }
+.deployment-environments-help code { padding: 0 3px; border-radius: 3px; background: #eef0f2; color: #333; white-space: nowrap; }
 .deployment-environments .deployment-environments-error { display: block; color: #c93c3c; font-size: 0.9em; margin-top: 2px; }
 /* the central environments of a project without own ones: read-only */
 .deployment-environments-disabled table.deployment-environments-table { opacity: .6; }

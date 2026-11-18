@@ -9,8 +9,33 @@ module RedmineDeployment
     # rake task redmine:fetch_changesets.
     #
     # Prepended (not alias-chained): +save_revisions+ is private.
+    #
+    # +tag_revisions+: the commits of the tags (the pipeline steps "tag", see RedmineDeployment::DeployStatus).
     module RepositoryGitPatch
+      # one line per tag: its object, the commit of an annotated tag (empty for a lightweight one) and its name
+      TAG_FORMAT = '%(objectname) %(*objectname) %(refname)'
+      TAG_LINE   = %r{\A(\h{40}) (\h{40})? refs/tags/(.+)\z}.freeze
+
+      # The tags of the repository with their commits (<tt>git for-each-ref refs/tags</tt> - one call, annotated tags
+      # dereferenced to their commit). Redmine's +tags+ has the names only.
+      #
+      # @return [Hash{String => String}] revision of the commit by tag name
+      def tag_revisions
+        revisions = {}
+        scm.send(:git_cmd, ['for-each-ref', "--format=#{TAG_FORMAT}", 'refs/tags']) do |io|
+          io.each_line do |line|
+            match = TAG_LINE.match(line.chomp)
+            revisions[scm_iconv_tag(match[3])] = match[2] || match[1] if match
+          end
+        end
+        revisions
+      end
+
       private
+
+      def scm_iconv_tag(name)
+        scm.send(:scm_iconv, 'UTF-8', scm.path_encoding, name)
+      end
 
       def save_revisions(prev_db_heads, repo_heads)
         result = super

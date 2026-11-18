@@ -1,6 +1,11 @@
-<%# plugin settings (Administration » Plugins): the central deploy environments - a project can override them
-    (project settings, tab "Deployment") %>
-<p><em class="info"><%= l(:text_deployment_environments_central) %></em></p>
+<%# plugin settings (Administration » Plugins): whether the pipeline respects the start date of an issue, and the
+    central deploy environments - a project can override them (project settings, tab "Deployment") %>
+<p>
+  <label for="settings_respect_start_date"><%= l(:label_deployment_respect_start_date) %></label>
+  <%= hidden_field_tag 'settings[respect_start_date]', '0', id: nil %>
+  <%= check_box_tag 'settings[respect_start_date]', '1', DeploymentSetting.respect_start_date?, id: 'settings_respect_start_date' %>
+  <em class="info"><%= l(:text_deployment_respect_start_date) %></em>
+</p>
 <%= render partial: 'deployment_settings/environments',
            locals: { field_name: 'settings[environments]', code: RedmineDeployment::Environments.global_code,
                      environments: RedmineDeployment::Environments.global } %>

@@ -3,15 +3,16 @@ Redmine::Plugin.register :redmine_deployment do
   name 'Redmine Deployment plugin'
   author 'Ruby Smart'
   description 'A plugin for repository deployments'
-  version '1.4.0'
+  version '1.5.0'
   url 'https://github.com/ruby-smart/redmine_deployment'
   author_url 'https://ruby-smart.org'
 
   # redmine requirements
   requires_redmine version_or_higher: '4.0'
 
-  # the central deploy environments (RedmineDeployment::Environments) - a project can override them
-  settings default: { 'environments' => nil }, partial: 'settings/redmine_deployment'
+  # the central deploy environments (RedmineDeployment::Environments) - a project can override them - and whether the
+  # pipeline counts only the changesets committed on or after the start date of an issue (off by default)
+  settings default: { 'environments' => nil, 'respect_start_date' => '0' }, partial: 'settings/redmine_deployment'
 
   project_module :deployment do
     permission :view_deployments, {

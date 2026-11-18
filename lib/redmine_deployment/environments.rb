@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'timeout'
+
 module RedmineDeployment
   # The deployment pipeline (e.g. the deploy status of an issue): "Code" (the changesets of the issue - a static step,
   # only its label and color can be changed), followed by the deploy environments.
@@ -11,13 +13,18 @@ module RedmineDeployment
   #
   # An environment is reached by
   # * branch: merged into a branch of the repository (e.g. "branch | develop | Develop")
+  # * tag: part of a tag of the repository (e.g. "tag | /^v\d+\./ | Release")
   # * deployment: a successful deployment of the environment (e.g. "deployment | production | Live")
   #
   # The value can be dynamic (see Environment#target) - it is resolved for each issue:
   # * wildcard "*": any characters, e.g. "branch | feature/*" (merged into any feature branch)
   # * placeholders "{%object.attribute%}": an attribute of the issue (PLACEHOLDER_OBJECTS), e.g.
   #   "branch | feature/{%issue.id%}-*" or "deployment | review-{%tracker.name%}"
-  # Dynamic values match case-insensitively, a placeholder without a value (e.g. no category) never matches.
+  # * regular expression "/<regexp>/" (case-insensitive: "/<regexp>/i"), e.g. "branch | /^(develop|main)$/" or
+  #   "branch | /^(feature|bugfix)\/{%issue.id%}-/i" - not anchored (use ^ and $), it may contain "|" and "/";
+  #   placeholders are inserted as literal text
+  # Dynamic values match case-insensitively (regular expressions only with "i"), a placeholder without a value (e.g.
+  # no category) never matches.
   module Environments
     DEFAULT_TEXT = "deployment | development | Development\ndeployment | staging | Staging\ndeployment | production | Live"
 
@@ -45,12 +52,12 @@ module RedmineDeployment
     CODE_COLOR = '#66707a'
 
     # the types of the environments - "code" is the static first step of the pipeline
-    TYPES     = %w[branch deployment].freeze
+    TYPES     = %w[branch tag deployment].freeze
     CODE_TYPE = 'code'
     # One line: "<type> | <branch or environment> | <label> | <color>" or "code | | <label> | <color>" (without a
-    # value) - the label and the color (COLORS name or '#rrggbb') are optional. The settings forms check every row
-    # with this pattern (JS), so it is JS-compatible.
-    PATTERN = '^\s*(?:(branch|deployment)\s*\|\s*([^|\s](?:[^|]*[^|\s])?)|(code)\s*\|)\s*' \
+    # value) - the label and the color (COLORS name or '#rrggbb') are optional. A regular expression ("/.../") may
+    # contain "|". The settings forms check every row with this pattern (JS), so it is JS-compatible.
+    PATTERN = '^\s*(?:(branch|tag|deployment)\s*\|\s*(/.+?/i?|[^|\s](?:[^|]*[^|\s])?)|(code)\s*\|)\s*' \
               "(?:\\|\\s*([^|]*?)\\s*(?:\\|\\s*(#[0-9a-fA-F]{6}|#{COLORS.keys.join('|')})\\s*)?)?$"
     FORMAT  = Regexp.new(PATTERN)
     # empty lines and comments ("# ...") are ignored
@@ -59,10 +66,20 @@ module RedmineDeployment
     LEGACY_FORMAT = /\A\s*([^|=:#\s][^|=:]*?)\s*(?:[=:]\s*([^|]*?))?\s*\z/.freeze
 
     WILDCARD = '*'
+    # a regular expression as value: "/<regexp>/" or "/<regexp>/i" (case-insensitive) - JS-compatible (settings forms)
+    REGEXP_PATTERN = '^/(.+)/(i?)$'
+    REGEXP_FORMAT  = Regexp.new(REGEXP_PATTERN)
+    # the maximum time of one match of a regular expression (Ruby >= 3.2) - a slow one (ReDoS) does not match
+    REGEXP_TIMEOUT = 0.1
+    # the maximum time all matches of the regular expressions of the settings may take together, per deploy status
+    # (i.e. per request - see MatchBudget): a slow one costs at most this much, not REGEXP_TIMEOUT per branch / tag
+    REGEXP_BUDGET = 1.0
     # "{%issue.id%}" - object and attribute
     PLACEHOLDER = /\{%\s*(\w+)\.(\w+)\s*%\}/.freeze
     # a value split into its placeholders, its wildcards and the literal text between them
     TOKENS = /(\{%\s*\w+\.\w+\s*%\}|\*)/.freeze
+    # a regular expression split into its placeholders and the regexp source between them
+    PLACEHOLDER_TOKENS = /(\{%\s*\w+\.\w+\s*%\})/.freeze
     # the objects of the placeholders: the association of the issue (nil: the issue itself) - their attributes are
     # the columns of the record
     PLACEHOLDER_OBJECTS = {
@@ -80,10 +97,75 @@ module RedmineDeployment
     PRINCIPAL_ATTRIBUTES = %w[id login firstname lastname name].freeze
 
     # the value of an environment resolved for an issue: text (placeholders replaced, e.g. for the pipeline popup) and
-    # the pattern the branch or deployment environment has to match
-    Target = Struct.new(:text, :regexp) do
+    # the pattern the branch or deployment environment has to match - custom: a regular expression of the settings
+    # ("/.../" - any pattern, see MatchBudget), not one built from a literal value or wildcards (linear)
+    Target = Struct.new(:text, :regexp, :custom) do
       def match?(name)
         regexp.match?(name.to_s)
+      rescue RegexpError # Regexp::TimeoutError
+        false
+      end
+    end
+
+    # The time the regular expressions of the settings ("/.../" - Target#custom) may take to match, all together: one
+    # deploy status (one request) matches them against every branch / tag / deployment environment, for every issue
+    # target - a slow regular expression (ReDoS) would cost REGEXP_TIMEOUT each time. Once the budget is used up,
+    # they match nothing any more (logged once). On Ruby < 3.2 (no Regexp timeout) a single match is aborted when the
+    # budget runs out (Timeout). Targets of literal values and wildcards are linear and match outside the budget.
+    class MatchBudget
+      attr_reader :remaining
+
+      # @param [Numeric] seconds
+      def initialize(seconds = REGEXP_BUDGET)
+        @remaining = seconds.to_f
+      end
+
+      def exhausted?
+        remaining <= 0
+      end
+
+      # @param [Target] target
+      # @param [Array<String>] names
+      # @return [Array<String>] the names matching the target - none, once the budget is used up
+      def select(target, names)
+        return names.select { |name| target.match?(name) } unless target.custom
+        return [] if exhausted?
+
+        started = clock
+        begin
+          within(remaining) do
+            names.select do |name|
+              raise Timeout::Error if clock - started > remaining
+
+              target.match?(name)
+            end
+          end
+        rescue Timeout::Error
+          @remaining = 0
+          []
+        ensure
+          @remaining -= clock - started
+          warn(target) if exhausted?
+        end
+      end
+
+      private
+
+      # the block - aborted after +seconds+, if a single match can't be limited by Regexp (Ruby < 3.2)
+      def within(seconds, &block)
+        Environments.regexp_timeout? ? yield : Timeout.timeout(seconds, &block)
+      end
+
+      def clock
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
+
+      def warn(target)
+        return if @warned
+
+        @warned = true
+        Rails.logger.warn("RedmineDeployment::Environments: the regular expressions of the pipeline took more than " \
+                          "#{REGEXP_BUDGET}s (#{target.text}) - they match nothing for the rest of the request")
       end
     end
 
@@ -103,13 +185,27 @@ module RedmineDeployment
         type == 'branch'
       end
 
+      def tag?
+        type == 'tag'
+      end
+
+      # true for a branch or a tag: reached by the ancestors of a commit (the head of the branch, the commit of the tag)
+      def ref?
+        branch? || tag?
+      end
+
       def deployment?
         type == 'deployment'
       end
 
-      # true, if the value has wildcards or placeholders
+      # true, if the value is a regular expression or has wildcards or placeholders
       def dynamic?
-        value.include?(WILDCARD) || placeholders?
+        regexp? || value.include?(WILDCARD) || placeholders?
+      end
+
+      # true, if the value is a regular expression ("/.../")
+      def regexp?
+        value.match?(REGEXP_FORMAT)
       end
 
       def placeholders?
@@ -182,13 +278,30 @@ module RedmineDeployment
         Code.new(match && match[4].presence, (match && color(match[5])) || CODE_COLOR)
       end
 
-      # @return [Environment, nil] nil for the step "Code", empty, comment and invalid lines (color nil without a
-      #   color in the line)
+      # @return [Environment, nil] nil for the step "Code", empty, comment and invalid lines (also an invalid regular
+      #   expression; color nil without a color in the line)
       def parse_line(line)
         match = FORMAT.match(line.to_s)
-        return unless match && match[1]
+        return unless match && match[1] && valid_value?(match[2])
 
-        Environment.new(match[1], match[2], match[4].presence || match[2].capitalize, color(match[5]))
+        label = match[4].presence || (match[2].match?(REGEXP_FORMAT) ? match[2] : match[2].capitalize)
+        Environment.new(match[1], match[2], label, color(match[5]))
+      end
+
+      # true, if a single match of a regular expression can be limited (Regexp timeout, Ruby >= 3.2)
+      def regexp_timeout?
+        Regexp.respond_to?(:timeout)
+      end
+
+      # false for a regular expression Ruby can't compile (its placeholders count as literal text)
+      def valid_value?(value)
+        regexp = REGEXP_FORMAT.match(value.to_s)
+        return true unless regexp
+
+        compile(regexp[1].gsub(PLACEHOLDER, 'x'), regexp[2])
+        true
+      rescue RegexpError
+        false
       end
 
       # the line of an environment - "<type> | <value> | <label> | <color>" - or of the step "Code":
@@ -219,9 +332,14 @@ module RedmineDeployment
       # characters - literal values match exactly, dynamic ones case-insensitively. The values of the placeholders
       # are literal text (a "*" in a subject is no wildcard).
       #
-      # @return [Target, nil] nil: a placeholder is unknown or has no value for the issue
+      # A regular expression ("/.../") is used as it is - only its placeholders are replaced (escaped).
+      #
+      # @return [Target, nil] nil: a placeholder is unknown or has no value for the issue, an invalid regular expression
       def resolve(value, issue)
         value  = value.to_s
+        regexp = REGEXP_FORMAT.match(value)
+        return resolve_regexp(regexp[1], regexp[2], issue) if regexp
+
         text   = +''
         source = +''
         value.split(TOKENS).each do |part|
@@ -239,7 +357,39 @@ module RedmineDeployment
         end
 
         dynamic = value.include?(WILDCARD) || value.match?(PLACEHOLDER)
-        Target.new(text, Regexp.new("\\A#{source}\\z", dynamic ? Regexp::IGNORECASE : nil))
+        Target.new(text, compile("\\A#{source}\\z", dynamic ? 'i' : ''))
+      end
+
+      # @return [Target, nil] the regular expression with the placeholders replaced by the (escaped) attributes of the
+      #   issue - text: "/<regexp>/<flags>" with the attributes as they are
+      def resolve_regexp(source, flags, issue)
+        text    = +''
+        pattern = +''
+        source.split(PLACEHOLDER_TOKENS).each do |part|
+          match = PLACEHOLDER.match(part) if part.start_with?('{%')
+          if match && match[0] == part
+            part = placeholder_value(issue, match[1], match[2])
+            return if part.nil?
+
+            pattern << Regexp.escape(part)
+          else
+            pattern << part
+          end
+          text << part
+        end
+
+        Target.new("/#{text}/#{flags}", compile(pattern, flags), true)
+      rescue RegexpError
+        nil
+      end
+
+      # @param [String] flags - 'i': case-insensitive
+      # @return [Regexp] with a timeout per match (REGEXP_TIMEOUT), if supported (Ruby >= 3.2)
+      def compile(source, flags)
+        options = flags == 'i' ? Regexp::IGNORECASE : nil
+        return Regexp.new(source, options) unless regexp_timeout?
+
+        Regexp.new(source, options, timeout: REGEXP_TIMEOUT)
       end
 
       # @return [String, nil] the attribute of the placeholder object of the issue - nil: unknown object or attribute

@@ -58,7 +58,7 @@ class EnvironmentsTest < ActiveSupport::TestCase
   end
 
   def test_invalid_lines_are_ignored
-    Setting.plugin_redmine_deployment = { 'environments' => "tag | v1 | V1\nbranch |  | Empty\ndeployment | a | b | c\ndeployment | a | b | #12345\n" \
+    Setting.plugin_redmine_deployment = { 'environments' => "release | v1 | V1\nbranch |  | Empty\ndeployment | a | b | c\ndeployment | a | b | #12345\n" \
                                                              "Branch | main\nbranch | main | Main" }
 
     assert_equal ['branch:main'], Environments.global.map(&:key)
@@ -223,6 +223,125 @@ class EnvironmentsTest < ActiveSupport::TestCase
     assert_nil Environments.resolve('{%issue.id%}', nil)
     # no placeholder syntax: literal text
     assert_equal '{issue.id}', Environments.resolve('{issue.id}', issue).text
+  end
+
+  def test_tags
+    Setting.plugin_redmine_deployment = { 'environments' => "branch | main\ntag | /^v\\d+\\./ | Release\ntag | v2.1.0\ndeployment | production" }
+
+    environments = Environments.global
+    assert_equal ['branch:main', 'tag:/^v\\d+\\./', 'tag:v2.1.0', 'deployment:production'], environments.map(&:key)
+    assert_equal [false, true, true, false], environments.map(&:tag?)
+    assert_equal [true, true, true, false], environments.map(&:ref?)
+    assert_equal 'V2.1.0', environments.third.label
+    assert_includes Environments::TYPES, 'tag'
+    assert_match Environments::FORMAT, 'tag | v* | Release | green'
+  end
+
+  def test_regexp_values
+    assert_match Environments::FORMAT, 'branch | /^(develop|main)$/ | Main | purple'
+    assert_match Environments::FORMAT, 'deployment | /^prod-(eu|us)/i'
+    assert_no_match(/\\[AzZh]|\(\?[<>imx]/, Environments::REGEXP_PATTERN)
+
+    environment = Environments.parse_line('branch | /^(feature|bugfix)/{%issue.id%}-/i | Feature | teal')
+    assert_equal ['/^(feature|bugfix)/{%issue.id%}-/i', 'Feature', '#1c8a8a'], [environment.value, environment.label, environment.color]
+    assert environment.regexp?
+    assert environment.dynamic?
+    assert environment.placeholders?
+    # the default label is the regular expression as it is
+    assert_equal '/^Main$/', Environments.parse_line('branch | /^Main$/').label
+    # without slashes "|" separates the label: no regular expression
+    assert_equal %w[develop main], Environments.parse_line('branch | develop|main').to_a.values_at(1, 2)
+
+    assert_not Environments::Environment.new('branch', '/develop').regexp?
+    assert_not Environments::Environment.new('branch', 'feature/x/').regexp?
+    assert_not Environments::Environment.new('branch', '//').regexp?
+    assert_not Environments::Environment.new('branch', '/a/x').regexp?
+  end
+
+  def test_regexps_match
+    target = Environments.resolve('/^(develop|main)$/', nil)
+
+    assert_equal '/^(develop|main)$/', target.text
+    assert target.match?('develop')
+    assert target.match?('main')
+    assert_not target.match?('Main')
+    assert_not target.match?('maintenance')
+
+    # not anchored, case-insensitive with "i", slashes inside
+    assert Environments.resolve('/release/\d+/', nil).match?('hotfix/release/2')
+    assert Environments.resolve('/^PROD-/i', nil).match?('prod-eu')
+    assert_not Environments.resolve('/^PROD-/', nil).match?('prod-eu')
+  end
+
+  def test_regexp_placeholders_are_literal_text
+    issue = Issue.find(1)
+    issue.subject = 'a.b'
+
+    target = Environments.resolve('/^(feature|bugfix)/{%issue.id%}-{%issue.subject%}$/i', issue)
+
+    assert_equal '/^(feature|bugfix)/1-a.b$/i', target.text
+    assert target.match?('Bugfix/1-a.b')
+    assert_not target.match?('feature/1-aXb')
+    assert_not target.match?('feature/12-a.b')
+    # no value: the step can't be reached
+    assert_nil Environments.resolve('/^review-{%assigned_to.login%}$/', issue.tap { |i| i.assigned_to = nil })
+  end
+
+  def test_invalid_regexps_are_ignored
+    Setting.plugin_redmine_deployment = { 'environments' => "branch | /^(develop/\nbranch | /[/ | Broken\nbranch | /^main$/" }
+
+    assert_equal ['branch:/^main$/'], Environments.global.map(&:key)
+    assert_nil Environments.resolve('/^(develop/', nil)
+    assert Environments.valid_value?('/^{%issue.id%}+$/')
+    assert_not Environments.valid_value?('/(/')
+    assert Environments.valid_value?('develop')
+  end
+
+  def test_slow_regexps_do_not_match
+    skip 'Regexp timeouts need Ruby >= 3.2' unless Regexp.respond_to?(:timeout)
+
+    target = Environments.resolve('/^(a|a)*$/', nil)
+
+    assert_equal Environments::REGEXP_TIMEOUT, target.regexp.timeout
+    target.regexp.stubs(:match?).raises(Regexp::TimeoutError)
+    assert_not target.match?('aaa')
+  end
+
+  def test_match_budget_limits_the_regular_expressions_of_the_settings
+    target = Environments.resolve('/^v/', nil)
+    assert target.custom
+    assert_not Environments.resolve('v*', nil).custom
+
+    slow = target.dup
+    slow.define_singleton_method(:match?) do |_name|
+      sleep(0.05)
+      true
+    end
+    budget = Environments::MatchBudget.new(0.12)
+
+    # used up while matching: nothing matches
+    assert_equal [], budget.select(slow, %w[v1 v2 v3 v4 v5 v6])
+    assert budget.exhausted?
+    assert_equal [], budget.select(target, %w[v1])
+    # literal values and wildcards are linear - outside the budget
+    assert_equal %w[develop], budget.select(Environments.resolve('develop', nil), %w[develop main])
+    assert_equal %w[v1 v2], budget.select(Environments.resolve('v*', nil), %w[v1 v2 x])
+    assert_equal %w[v1 v2], Environments::MatchBudget.new.select(target, %w[v1 v2 x])
+  end
+
+  def test_match_budget_aborts_a_single_match_without_regexp_timeouts
+    Environments.stubs(:regexp_timeout?).returns(false)
+    target = Environments.resolve('/^v/', nil)
+    target.define_singleton_method(:match?) do |_name|
+      sleep(5)
+      true
+    end
+    budget  = Environments::MatchBudget.new(0.2)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    assert_equal [], budget.select(target, %w[v1])
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 1
+    assert budget.exhausted?
   end
 
   def test_placeholder_associations

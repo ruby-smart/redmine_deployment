@@ -36,12 +36,22 @@ de:
   label_deployment_live_since: "Live seit %{time}"
   label_deployment_environments: Deployment-Pipeline
   label_deployment_environments_custom: Eigene Deployment-Pipeline
+  label_deployment_respect_start_date: Beginn des Tickets beachten
+  text_deployment_respect_start_date: "Die Deployment-Pipeline eines Tickets und sein Reiter „Deployment“ zählen nur Commits, die am oder nach seinem Beginn (Startdatum, ab Mitternacht in der Zeitzone des Benutzers) gemacht wurden - ältere Commits mit Bezug auf das Ticket werden ignoriert. Tickets ohne Beginn zählen alle Commits."
   label_deployment_issue_indicator: Indikator anzeigen
   text_deployment_issue_indicator: "Indikator in Ticket-Detail-Seite anzeigen"
   text_deployment_environments_custom: "Das Projekt definiert eine eigene Deployment-Pipeline. Ohne Haken gilt die zentrale Deployment-Pipeline (Administration » Plugins » Redmine Deployment plugin)."
-  text_deployment_environments_central: "Die zentrale Deployment-Pipeline - sie gilt für alle Projekte ohne eigene Deployment-Pipeline (Projekt-Einstellungen, Tab 'Deployment')."
-  text_deployment_environments: "Die Stufen in der Reihenfolge der Tabelle: 'Code' (die Commits des Tickets) ist immer die erste Stufe - nur Bezeichnung und Farbe sind änderbar. Die weiteren Stufen sind per Drag & Drop am Griff sortierbar. Typ 'Branch': erreicht, wenn die Commits in den Branch (Wert, z. B. develop) des Repositorys gemergt sind. Typ 'Deployment': erreicht durch ein erfolgreiches Deployment der Umgebung (Wert, z. B. production). Die Bezeichnung ist optional (Standard: der Wert). Dynamische Werte: '*' steht für beliebige Zeichen (z. B. feature/*), Platzhalter setzen Ticket-Attribute ein (z. B. feature/{%issue.id%}-* oder review-{%tracker.name%}) - Objekte: issue, tracker, project, status, priority, category, version, author, assigned_to; Attribute: die Felder des Objekts (z. B. id, name, subject). Dynamische Werte vergleichen ohne Groß-/Kleinschreibung; hat ein Platzhalter keinen Wert, ist die Stufe nicht erreichbar."
-  text_deployment_environments_invalid: "Ungültige Einträge in Zeile %{lines}: der Wert ist Pflicht, Wert und Bezeichnung dürfen kein '|' enthalten."
+  text_deployment_environments_html: |-
+    <b>Code</b>: erreicht, sobald eine Revision mit dem Ticket verknüpft ist.
+    <b>Branch</b>: erreicht, wenn die Commits in den Branch gemergt sind, z. B. <code>develop</code>.
+    <b>Tag</b>: erreicht, wenn die Commits in einem Tag enthalten sind, z. B. <code>v2.1.0</code> oder <code>/^v\d+\./</code>.
+    <b>Deployment</b>: erreicht durch ein erfolgreiches Deployment der Umgebung, z. B. <code>production</code>.
+
+    <code>*</code> steht für beliebige Zeichen, z. B. <code>feature/*</code>.
+    Regulärer Ausdruck in Schrägstrichen, nicht verankert, z. B. <code>/^(develop|main)$/</code> - mit <code>/…/i</code> ohne Groß-/Kleinschreibung.
+
+    Platzhalter <code>{%objekt.attribut%}</code> setzen ein Feld des Tickets ein (Objekte: issue, tracker, project, status, priority, category, version, author, assigned_to), z. B. <code>feature/{%issue.id%}-*</code> oder <code>/^review-{%tracker.name%}$/i</code>.
+  text_deployment_environments_invalid: "Ungültige Einträge in Zeile %{lines}: der Wert ist Pflicht, die Bezeichnung und ein Wert ohne regulären Ausdruck dürfen kein '|' enthalten, ein regulärer Ausdruck (/.../) muss gültig sein."
   text_deployment_environments_empty: Keine Stufen nach 'Code' - die Deploy-Anzeige ist ausgeblendet.
   label_deployment_environment_type: Typ
   label_deployment_environment_value: Wert
@@ -49,9 +59,10 @@ de:
   label_deployment_environment_color: Farbe
   label_deployment_environment_add: Umgebung hinzufügen
   label_deployment_environment_type_branch: Branch
+  label_deployment_environment_type_tag: Tag
   label_deployment_environment_type_deployment: Deployment
   label_deployment_environment_type_code: Code
-  text_deployment_environment_value: "Branch bzw. Umgebung (*, {%issue.id%})"
+  text_deployment_environment_value: "Branch bzw. Umgebung (*, {%issue.id%}, /regexp/)"
   results:
     success: erfolgreich
     fail: fehlgeschlagen

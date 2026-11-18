@@ -2,7 +2,8 @@
  * row, only label and color), then the environments (sortable).
  * The table is saved as text: one line per row in the order of the table (hidden field) - "code | | <label> | <color>"
  * and "<type> | <value> | <label> | <color>", every line is checked with the pattern of the parser
- * (RedmineDeployment::Environments::PATTERN).
+ * (RedmineDeployment::Environments::PATTERN), a regular expression as value ("/.../", REGEXP_PATTERN) must compile -
+ * its placeholders count as literal text.
  * Project settings: without own environments (checkbox .deployment-environments-custom) the table shows the central
  * environments read-only and is not submitted. */
 (function ($) {
@@ -15,6 +16,8 @@
     this.$field = this.$container.find('input.deployment-environments-field');
     this.$body = this.$container.find('.deployment-environments-table tbody');
     this.pattern = new RegExp(this.$field.attr('data-pattern'));
+    this.regexp = new RegExp(this.$field.attr('data-regexp'));
+    this.placeholder = new RegExp(this.$field.attr('data-placeholder'), 'g');
     this.colors = this.$field.data('colors') || [];
 
     this.initSortable();
@@ -93,6 +96,19 @@
     $row.find('.deploy-env-value').trigger('focus');
   };
 
+  // false for a value "/.../" that is no valid regular expression - other values are no regular expressions
+  EnvironmentsTable.prototype.validRegexp = function (value) {
+    var match = this.regexp.exec(value);
+    if (!match) { return true; }
+
+    try {
+      new RegExp(match[1].replace(this.placeholder, 'x'), match[2]); // eslint-disable-line no-new
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
   // writes the rows into the hidden field and marks the invalid rows - returns true, if all rows are valid
   EnvironmentsTable.prototype.sync = function () {
     var self = this;
@@ -104,13 +120,14 @@
     $code.add(this.rows()).each(function (index) {
       var $row = $(this);
       var code = $row.hasClass('deployment-code');
+      var value = code ? '' : $.trim($row.find('.deploy-env-value').val());
       var line = [
         code ? 'code' : $row.find('.deploy-env-type').val(),
-        code ? '' : $.trim($row.find('.deploy-env-value').val()),
+        value,
         $.trim($row.find('.deploy-env-label').val()),
         $row.find('.deploy-env-color').val()
       ].join(' | ');
-      var valid = self.pattern.test(line);
+      var valid = self.pattern.test(line) && self.validRegexp(value);
 
       $row.toggleClass('deploy-env-invalid', !valid);
       if (!valid) { invalid.push(index + 1); }

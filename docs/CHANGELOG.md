@@ -1,34 +1,32 @@
 # redmine deployment - CHANGELOG
 
+## 2026-11-18 v1.5.0
+* **[add]** pipeline step type **"Tag"**: reached, if the commits are part of a matching tag _(e.g. `tag | /^v\d+\./ | Release`; read by `git for-each-ref`, annotated tags dereferenced)_
+* **[add]** step values as **regular expression** `/regexp/` or `/regexp/i` _(not anchored, placeholders inserted escaped)_ - the settings forms mark an invalid one, the parser ignores it
+* **[add]** regular expressions are limited to 0.1 s per match and 1 s per request _(`Environments::MatchBudget`, Ruby < 3.2 by `Timeout`)_ - a slow match counts as no match
+* **[add]** plugin option **"Beginn des Tickets beachten"** _(off by default)_: pipeline and tab "Deployment" count only commits since the issue's start date _(midnight, time zone of the user)_
+* **[ref]** a branch / tag step costs one query and one recursive query, whatever the number of matching branches / tags _(2,000 tags: 30 ms instead of 16 s)_
+* **[ref]** cache: one entry per step and repository _(replaced when its heads change, expires after 7 days)_; branches and tags are cached for 5 minutes instead of calling git per request
+* **[ref]** pipeline settings: shorter help below the table, the option "Beginn des Tickets beachten" before the table
+
 ## 2026-10-02 v1.4.0
-* **[add]** the changesets of a deployment are **resolved once and stored** _(table `deployment_changesets`, `Deployment#resolve_changesets!` by one recursive query - `RedmineDeployment::CommitRange`, about 15 ms for a history of 17,000 commits on MySQL 8)_: the "Deployment" tab of an issue, the issues / revisions of a deployment and the deploy status are indexed lookups now — one query for `Issue#deployments`, whatever the number of deployments; nothing walks the commit graph in a request, with or without a cache
-* **[add]** the resolution runs in the background: `ResolveDeploymentChangesetsJob` right after a deployment is logged _(the deploy process - the API request - never waits for it)_, after the repository fetched new changesets _(`Repository::Git#save_revisions` - deployments logged before their commits were fetched stay pending until then)_ and by the rake task **`redmine:deployment:resolve_changesets`** _(the pending ones; `FORCE=1` all, `PROJECT=identifier`, `DEPLOYMENT=id`)_ — run it once after the update to backfill the existing deployments, and by cron after `redmine:fetch_changesets` as a safety net
-* **[add]** `deployments.changesets_resolved_at` / `changesets_error` _(the state of the resolution; `Deployment.changesets_pending`, `#changesets_resolved?`)_ and `changesets_unavailable_reason` value `:not_resolved` with an explanatory notice _(en + de)_
-* **[add]** when a repository is reloaded or deleted _(`Repository#clear_changesets`)_, the stored changesets of its deployments are removed and the deployments set back to pending, so they are resolved again after the fetch
-* **[ref]** `RedmineDeployment::DeployStatus` reads the stored changesets of the deployments _(one indexed query per project instead of one recursive query per deployment)_; the recursive query and its Ruby fallback moved to `RedmineDeployment::CommitRange` and serve the branch steps only _(ancestors of a branch head, cached by the head as before)_
-* **[ref]** `Issue#deployments` no longer prunes by `created_on` - the stored changesets are exact
-* **[fix]** the deployments of an issue and the issues / revisions of a deployment took minutes on a real repository — `Deployment#changesets` walked the commit graph in Ruby with one query per generation of commits down to the root _(3,286 queries for a history of 17,000 commits)_, and `Issue#deployments` did so for every candidate deployment; fast locally only because the local deployments sit on a 100-commit demo repository
-* **[fix]** statistics: an environment keeps its color in both graphs - the colors come from a fixed list _(`DeploymentsController::ENVIRONMENT_COLORS`)_ and are assigned to the environments of the project _(alphabetically, all successful deployments)_, not to the position of a dataset in a graph; the graph per month shows the last 12 months and the one per author all deployments, so the same environment could change its color between them. The color of a dataset is part of the graph data _(`color`)_
+* **[add]** the changesets of a deployment are **resolved once and stored** _(`deployment_changesets`, one recursive query)_ - issue tab, deployment details and deploy status are indexed lookups now
+* **[add]** resolution in the background: `ResolveDeploymentChangesetsJob` after a deployment / fetch, rake task **`redmine:deployment:resolve_changesets`** _(run once after the update, then by cron)_
+* **[add]** resolution state `changesets_resolved_at` / `changesets_error` and the notice `:not_resolved`; reloading or deleting a repository resets its deployments to pending
+* **[ref]** `DeployStatus` reads the stored changesets; `Issue#deployments` no longer prunes by `created_on`
+* **[fix]** deployments of an issue / issues of a deployment took minutes on real repositories _(commit graph walked in Ruby, 3,286 queries for 17,000 commits)_
+* **[fix]** statistics: an environment keeps its color in both graphs _(fixed color list per environment)_
 
 ## 2026-10-02 v1.3.0
-* **[add]** `changesets_unavailable_reason` value `:incomplete_range` with an explanatory notice _(en + de)_, and the issue tab of the detail page now shows the reason as well _(previously only the revisions tab did)_
-* **[add]** deployment pipeline: dynamic values - wildcards (`feature/*`) and issue placeholders (`{%issue.id%}`, `{%tracker.name%}`, ...), resolved per issue
-* **[add]** permission **"Indikator / Badge ansehen"** _(`view_deployment_indicator`)_ for the deploy status on the issue page and in issue lists
-* **[add]** project setting **"Indikator anzeigen"** - the deploy status on the issue page is off by default
-* **[add]** the pipeline popup names its issue _("Deployment-Pipeline - #42")_
-* **[add]** a click on the deploy status opens the whole pipeline of the project as a popup _(replaces the tooltip)_
-* **[add]** `deployment_badge(status, short: true)` - the first letter of the step only
-* **[add]** configurable deployment pipeline: "Code", followed by branch and deployment steps with colors - central in the plugin settings, overridable per project
-* **[add]** deploy status of issues (`RedmineDeployment::DeployStatus`), resolved for many issues at once and cached
-* **[add]** issue query columns "Deploy indicator" and "Deploy badge"
-* **[add]** deploy status on the issue page and `DeploymentStatusHelper` for other plugins _(taken over from RI-Customizations)_
-* **[ref]** revision range of a deployment without a `from_revision` is displayed as `? ... <rev>` instead of `000000 ... <rev>`, which suggested "since the beginning"
-* **[ref]** permission `manage_deployment_settings` renamed to **"Deployment Einstellungen anpassen"**
-* **[ref]** issue tab renamed to **"Deployment"**
-* **[ref]** issue query column "Deploy-Badge" renamed to **"Deployment"**
-* **[fix]** a deployment without both revisions could make its detail page never finish loading — a missing (or not yet fetched) `from_revision` was read as "since the root commit", so the deployment claimed the *entire* repository history: every changeset and every issue ever referenced, rendered unpaginated. `Deployment#changesets` now requires **both** boundaries and returns nothing without them
-* **[fix]** an all-zero revision — Git's null revision, as deploy hooks send it (`0000000000000000000000000000000000000000`, often abbreviated to `000000`) — counts as "no revision" instead of being resolved against the repository, where `Repository::Git#find_changeset_by_name`'s `scmid LIKE "<name>%"` prefix match could hit an arbitrary commit whose id starts with zeros and produce a bogus range _(`Deployment.null_revision?`, applied to the range, the deploy status and the revision links)_
-* **[fix]** the same open-ended range made `RedmineDeployment::DeployStatus` mark every issue of a repository as deployed — deployments without a resolvable `from_revision` are now skipped for the deploy indicator / badge too _(the branch steps keep their "merged into this head" semantics)_
+* **[add]** configurable **deployment pipeline** _("Code", branch and deployment steps with colors)_ - central in the plugin settings, overridable per project
+* **[add]** dynamic step values: wildcards (`feature/*`) and issue placeholders (`{%issue.id%}`, `{%tracker.name%}`, ...), resolved per issue
+* **[add]** **deploy status** of issues (`RedmineDeployment::DeployStatus`, many issues at once, cached) on the issue page, in issue query columns and via `DeploymentStatusHelper`
+* **[add]** permission **"Indikator / Badge ansehen"** and project setting **"Indikator anzeigen"** _(off by default)_
+* **[add]** a click on the deploy status opens the pipeline popup of the issue _(replaces the tooltip)_; `deployment_badge(status, short: true)`
+* **[add]** notice `:incomplete_range` - now also on the issue tab of the deployment details
+* **[ref]** renamed: permission **"Deployment Einstellungen anpassen"**, issue tab and query column **"Deployment"**; a missing `from_revision` is shown as `? ... <rev>`
+* **[fix]** a deployment without both revisions claimed the whole repository history _(detail page never finished loading, every issue marked deployed)_ - both boundaries are required now
+* **[fix]** Git's null revision (`000000...`) counts as "no revision" instead of prefix-matching a random commit
 * **[fix]** failed deployments no longer count towards the deploy status
 
 ## 2026-07-08 v1.2.2
